@@ -9,3 +9,4 @@ from . import router
 from . import optimization
 from . import in_polygon
 from . import store
+from . import router

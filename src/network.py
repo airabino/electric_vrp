@@ -92,14 +92,60 @@ def Fields_From_Vertices(vertices,keys=[]):
 
 	return out
 
-def Graph_From_Vertices(vertices,fields=[]):
+def NX_Graph_From_Vertices(vertices):
+
+	# vertex_ids=np.array(list(vertices.keys()))
+
+	# x,y=np.array([[v['Longitude'],v['Latitude']] for v in vertices.values()]).T
+
+	vertex_info=[]
+	# keep=[True]*len(vertex_ids)
+
+	edge_ids=[]
+
+	for vertex_from,vertex in vertices.items():
+
+		vertex_info.append(
+			(
+				vertex_from,
+				{
+				'id':vertex,
+				'x':vertex['Longitude'],
+				'y':vertex['Latitude'],
+				}
+				)
+			)
+
+		# vertex_ids[idx]=vertex['id']
+
+		edge_ids_temp=[]
+
+		for vertex_to,edge in vertex['Adjacency'].items():
+			# print(edge)
+			# break
+
+			# keep[idx]=True
+
+			edge_ids_temp.append((vertex_from,vertex_to,edge))
+
+		edge_ids.extend(edge_ids_temp)
+
+	# return vertex_info, edge_ids
+
+	nx_graph=nx.Graph()
+	nx_graph.add_nodes_from(vertex_info)
+	nx_graph.add_edges_from(edge_ids)
+
+	return nx_graph
+
+def Graph_From_Vertices(vertices,fields=[],x_field='x',y_field='y',edges_field='edges'):
 	'''
 	Converts vertices structure into a NetworkX Graph
 	'''
 
 	vertex_ids=np.zeros(len(vertices),dtype=int)
 
-	x,y=Fields_From_Vertices(vertices,['x','y'])
+	x,y=Fields_From_Vertices(vertices,[x_field,y_field])
 
 	vertex_info=[]
 	keep=[True]*len(vertex_ids)
@@ -113,7 +159,7 @@ def Graph_From_Vertices(vertices,fields=[]):
 
 		edge_ids_temp=[]
 
-		for idx1,edge in enumerate(vertex['edges']):
+		for idx1,edge in enumerate(vertex[edges_field]):
 
 			keep[idx]=True
 
@@ -200,8 +246,8 @@ def Standard_RoadMap_Graph(graph):
 	return graph
 
 def RoadMap_From_Shapefile(
-	foadmap_path='Data/RoadMap/Cali_Roads.pkl',
-	savepath='Data/GeneratedData/RoadMap.pkl'
+	filepath='Data/RoadMap/roadmap.shp',
+	savepath='Data/RoadMap/roadmap.pkl'
 	):
 	'''
 	Loads in a shapefile containing a road map and processes into a NetworkX
@@ -209,9 +255,9 @@ def RoadMap_From_Shapefile(
 	'''
 
 	# Loading the road map shapefile into a GeoDataFrame
-	with open(foadmap_path,'rb') as file:
+	gdf=gpd.read_file(filepath)
 
-		gdf=pkl.load(file)
+	gdf=gdf.to_crs(4326)
 
 	# Creating a NetworkX Graph
 	graph=Graph_From_GDF(gdf)
@@ -230,10 +276,10 @@ def RoadMap_From_Shapefile(
 
 	return graph,gdf
 
-def RoadMap_From_Pickle(filepath='Data/GeneratedData/RoadMap.pkl'):
+def RoadMap_From_Pickle(filepath='Data/RoadMap/roadmap.pkl'):
 
 	# Loading the pickled RoadMap graph
-	with open(savepath,'rb') as file:
+	with open(filepath,'rb') as file:
 
 		graph,gdf=pkl.load(file)
 
@@ -328,6 +374,8 @@ def Add_Locations(
 	weight='length',
 	cutoff=300e3,
 	fields=['time','length'],
+	verbose=True,
+	add_all=False,
 	):
 
 	# Pulling the charger ids as a list
@@ -342,14 +390,18 @@ def Add_Locations(
 	node_assignment=Node_Assignment_From_Coordinates(
 		graph,charger_ids,lon,lat)
 
+	# print(node_assignment)
+
 	# Pulling assigned nodes for all chargers
 	destination_nodes=np.array([val['node'] for val in node_assignment.values()])
 
+	# print(destination_nodes)
+
 	# Calls 1 to N router for chargers that have not been added
-	for idx in ProgressBar(range(len(added))):
+	for idx in ProgressBar(range(len(added)),disp=verbose):
 
 		# Only computes distances for non-added chargers
-		if not added[idx]:
+		if (not added[idx]) or add_all:
 
 			# Getting the origin charger ID
 			charger_id=charger_ids[idx]
@@ -388,5 +440,7 @@ def Add_Locations(
 
 					chargers[charger_id]['Adjacency'][adjacent_charger]=(
 						adjacency_information)
+
+			chargers[charger_id]['Added']=1.
 
 	return chargers

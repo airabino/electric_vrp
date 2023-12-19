@@ -6,78 +6,84 @@ import networkx as nx
 
 from .utilities import ProgressBar
 
+from operator import itemgetter
 
-def ComputeSavingsMatrix(graph,depot_index=0,distance_field='distance',
-	min_distance=0) -> np.ndarray:
+
+def ComputeSavingsMatrix(adjacency,depot_index=0,bounds=(0,np.inf)):
 	'''
-	Computing the savings matrix from a graph. Savings is the difference between:
+	Computing the savings matrix from an adjacency matrix.
 
-	home -> destination 1 -> home -> destination 2 -> home
+	Savings is the difference between:
+
+	depot -> destination 1 -> depot -> destination 2 -> depot
 
 	and
 
-	home -> destination 1 -> destination 2 -> home
+	depot -> destination 1 -> destination 2 -> depot
 
 
 	Values for links with negative savings or invalid lnks will be set to zero
 
-	Requires the definition of a home location
+	Requires the definition of a depot location
 	'''
-
-	adjacency=nx.to_numpy_array(graph,weight=distance_field)
 
 	cost_from,cost_to=np.meshgrid(adjacency[:,depot_index],adjacency[depot_index])
 
 	savings=cost_from+cost_to-adjacency
 
+	# Negative savings should nobe be considered
 	savings[savings<0]=0
+
+	# No self-savings
 	savings[np.diag_indices(adjacency.shape[0])]=0
-	savings[adjacency<min_distance]=0
+
+	#No savings from infeasible edges
+	savings[adjacency<bounds[0]]=0
+	savings[adjacency>bounds[1]]=0
 
 	return savings
 
-def InitialRoutes(graph,depot_field='is_depot',distance_field='distance'):
+def InitialRoutes(adjacency,depot_indices):
 	'''
 	Prodces list of initial 1-stop routes for the Clarke Wright algorithm where
 	each route connects a stop to the nearest depot
 	'''
 
-	# Pulling depot indices
-	depot_indices=np.array([key for key,val in graph._node.items() if val[depot_field]])
+	depot_indices=np.array(depot_indices)
+
+	if type(adjacency) is np.ndarray:
+		adjacency=[adjacency]
 
 	#Pulling destination indices
-	destination_indices=np.array(
-		[key for key,val in graph._node.items() if not val[depot_field]])
-
-	# Pulling adjacency matrix
-	adjacency=nx.to_numpy_array(graph,weight=distance_field)
+	destination_indices=np.array([idx for idx in range(adjacency[0].shape[0]) \
+		if idx not in depot_indices])
 
 	# Finding closest depots for all destination
-	depot_adjacency=adjacency[:,depot_indices]
+	depot_adjacency=adjacency[0][:,depot_indices]
 	closest_depots=depot_indices[np.argmin(depot_adjacency,axis=1)]
 
 	# Creating initial routes
 	routes=[]
+	route_weights=[]
 
 	for destination_index in destination_indices:
 		depot_index=closest_depots[destination_index]
 
-		routes.append([depot_index,destination_index,depot_index])
+		routes.append([
+			depot_index,
+			destination_index,
+			depot_index,
+			])
 
-	return routes
+		route_weight=([
+			adj[depot_index,destination_index]+
+			adj[destination_index,depot_index] \
+			for adj in adjacency
+		])
 
-def RouteDistance(graph,route,distance_field='distance'):
+		route_weights.append(route_weight)
 
-	from_indices=route[:-1]
-	to_indices=route[1:]
-
-	route_distance=0
-
-	for idx in range(len(from_indices)):
-
-		route_distance+=graph[from_indices[idx]][to_indices[idx]][distance_field]
-
-	return route_distance
+	return routes,route_weights
 
 def RouteTime(graph,route,vertex_time_field='time',edge_time_field='time'):
 
@@ -88,40 +94,82 @@ def RouteTime(graph,route,vertex_time_field='time',edge_time_field='time'):
 
 	for idx in range(len(from_indices)):
 
-		route_time+=graph[from_indices[idx]][to_indices[idx]][edge_time_field]
+		# print(graph._adj[from_indices[idx]][to_indices[idx]])
+
+		route_time+=graph._adj[from_indices[idx]][to_indices[idx]][edge_time_field]
 		route_time+=graph._node[to_indices[idx]][vertex_time_field]
 
 	return route_time
 
-def ValidRoute(graph,route,min_distance,distance_field='distance'):
+def RouteInformation(graph,route,distance_field='length',time_field='time'):
 
 	from_indices=route[:-1]
 	to_indices=route[1:]
 
-	valid=True
+	route_distance=0
+	route_time=0
 
 	for idx in range(len(from_indices)):
 
-		distance=graph[from_indices[idx]][to_indices[idx]][distance_field]
+		route_distance+=graph._adj[from_indices[idx]][to_indices[idx]][distance_field]
 
-		if distance<min_distance:
+		route_time+=graph._adj[from_indices[idx]][to_indices[idx]][time_field]
+		route_time+=graph._node[to_indices[idx]][time_field]
 
-			valid=False
-			break
+	return route_distance,route_time
 
-	return valid
+def Assignments(nodes):
+
+	node_to_idx={nodes[idx]:idx for idx in range(len(nodes))}
+	idx_to_node={val:key for key,val in node_to_idx.items()}
+
+	return node_to_idx,idx_to_node
+
+def FindRoutes(routes,node_0,node_1):
+
+	first_route_index=[]
+	second_route_index=[]
+
+	itemget=itemgetter(1)
+
+	result=filter(
+		lambda idx: itemget(routes[idx])==(node_0),
+		list(range(len(routes)))
+		)
+
+	for res in result:
+
+		first_route_index=res
+
+	itemget=itemgetter(-2)
+
+	result=filter(
+		lambda idx: itemget(routes[idx])==(node_1),
+		list(range(len(routes)))
+		)
+
+	for res in result:
+
+		second_route_index=res
+
+	
+
+	return first_route_index,second_route_index
 
 def ClarkeWright(
-	graph,
-	depot_field='is_depot',
-	load_field='load',
-	distance_field='distance',
-	vertex_time_field='time',
-	edge_time_field='time',
-	vehicle_time=np.inf,
-	vehicle_range=np.inf,
-	max_iterations=10000,
-	min_distance=0,
+	distance_adjacency,
+	time_adjacency,
+	depot_indices,
+	max_iterations=100000,
+	mode='distance', # ['distance','time']
+	max_route_distance=np.inf,
+	max_leg_distance=np.inf,
+	min_leg_distance=0,
+	distance_offset=0,
+	max_route_time=np.inf,
+	max_leg_time=np.inf,
+	min_leg_time=0,
+	time_offset=0,
 	):
 	
 	'''
@@ -136,31 +184,68 @@ def ClarkeWright(
 	available.
 	'''
 
-	# Pulling depot indices
-	depot_indices=[key for key,val in graph._node.items() if val[depot_field]]
-	# print(depot_indices)
+	# #Dictionary assignemnts for graph indexing
+	# node_to_idx,idx_to_node=Assignments(graph)
+
+	# Mode switch
+	if mode=='distance':
+
+		primary_adjacency=distance_adjacency
+		secondary_adjacency=time_adjacency
+
+		primary_bounds=(min_leg_distance,max_leg_distance)
+		primary_limit=max_route_distance
+		primary_offset=distance_offset
+
+		secondary_bounds=(min_leg_time,max_leg_time)
+		secondary_limit=max_route_time
+		secondary_offset=time_offset
+
+	elif mode=='time':
+
+		primary_adjacency=time_adjacency
+		secondary_adjacency=distance_adjacency
+
+		primary_bounds=(min_leg_time,max_leg_time)
+		primary_limit=max_route_time
+		primary_offset=time_offset
+
+		secondary_bounds=(min_leg_distance,max_leg_distance)
+		secondary_limit=max_route_time
+		secondary_offset=distance_offset
 	
 	#Computing savings matrices for all depots
-	savings=np.array(
-		[ComputeSavingsMatrix(graph,depot_index,min_distance=min_distance)\
-		 for depot_index in depot_indices])
-	# print(savings)
+	primary_savings=np.array(
+		[ComputeSavingsMatrix(
+			primary_adjacency,
+			depot_index,
+			primary_bounds,
+			) \
+		for depot_index in depot_indices])
+
+	secondary_savings=np.array(
+		[ComputeSavingsMatrix(
+			secondary_adjacency,
+			depot_index,
+			secondary_bounds,
+			) \
+		for depot_index in depot_indices])
 
 	# Initializing routes - initial assumption is that locations will be served by
 	# closest depot. All initial routes are 1-stop (depot -> destination -> depot)
-	routes=InitialRoutes(graph,depot_field)
-	route_distances=[RouteDistance(graph,route,distance_field) for route in routes]
+	routes,route_weights=InitialRoutes(
+		[primary_adjacency,secondary_adjacency],
+		depot_indices,
+		)
 
-
+	k=0
 
 	# Implementing savings
 	success=False
-	# print(max_iterations)
 	for idx in range(max_iterations):
-		# pass
 
 		# Computing remaining savings
-		remaining_savings=savings.sum()
+		remaining_savings=primary_savings.sum()
 
 		# If all savings incorporated then exit
 		if remaining_savings==0:
@@ -168,7 +253,9 @@ def ClarkeWright(
 			break
 
 		# Finding link with highest remaining savings
-		best_savings_link=np.unravel_index(np.argmax(savings),savings.shape)
+		best_savings_link=np.unravel_index(np.argmax(primary_savings),primary_savings.shape)
+
+		t0=time.time()
 
 		# Finding routes to merge - the routes can only be merged if there are
 		# routes which start with and end with the to and from index respectively.
@@ -178,13 +265,15 @@ def ClarkeWright(
 		first_route_index=[]
 		second_route_index=[]
 
-		for idx1,route in enumerate(routes):
+		first_route_index,second_route_index=FindRoutes(
+			routes,
+			best_savings_link[1],
+			best_savings_link[2],
+			)
 
-			if best_savings_link[1] in [route[1],route[-2]]:
-				first_route_index=idx1
+		k+=time.time()-t0
 
-			elif best_savings_link[2] in [route[1],route[-2]]:
-				second_route_index=idx1
+		print([idx,primary_savings.sum(),k/(idx+1)],end='\r')
 
 		# If a valid merge combination is found create a tentative route and evaluate
 		if first_route_index and second_route_index:
@@ -193,59 +282,109 @@ def ClarkeWright(
 			tentative_route_core=(
 				routes[first_route_index][1:-1]+routes[second_route_index][1:-1])
 
-			# Checking if tentative route is valid
-			valid_tentative_route=ValidRoute(graph,tentative_route_core,min_distance,
-				distance_field=distance_field)
+			# Creating tentative routes based out of each depot
+			tentative_routes=(
+				[[depot]+tentative_route_core+[depot]\
+				 for depot in depot_indices])
 
-			# Only proceeding for valid route cores
-			if valid_tentative_route:
+			# Finding the best of the tentative routes
+			tentative_route_weights=[]
 
-				# Creating tentative routes based out of each depot
-				tentative_routes=(
-					[[depot_index]+tentative_route_core+[depot_index]\
-					 for depot_index in depot_indices])
+			for tentative_route in tentative_routes:
 
-				# Finding the best of the tentative routes
-				tentative_route_distances=(
-					[RouteDistance(graph,tentative_route,distance_field)\
-					 for tentative_route in tentative_routes])
+				tentative_route_primary_weight=(
+					route_weights[first_route_index][0]+
+					route_weights[second_route_index][0]-
+					primary_savings[*best_savings_link]
+					)
 
-				selected_tentative_route=tentative_routes[np.argmin(tentative_route_distances)]
-				selected_tentative_route_distance=(
-					tentative_route_distances[np.argmin(tentative_route_distances)])
+				tentative_route_secondary_weight=(
+					route_weights[first_route_index][1]+
+					route_weights[second_route_index][1]-
+					secondary_savings[*best_savings_link]
+					)
+				
+				tentative_route_weights.append(
+					[tentative_route_primary_weight,tentative_route_secondary_weight]
+					)
 
-				# Checking if the merged route represents savings over the individual routes
-				improvement=selected_tentative_route_distance<=(
-					route_distances[first_route_index]+route_distances[second_route_index])
+			selected_route_index=np.argmin([rw[0] for rw in tentative_route_weights])
 
-				# Calculating route traversal time
-				selected_tentative_route_time=RouteTime(
-					graph,selected_tentative_route,
-					vertex_time_field=vertex_time_field,
-					edge_time_field=edge_time_field)
+			selected_tentative_route=tentative_routes[selected_route_index]
 
-				# Checking if the merged route is feasible
-				feasible=(
-					(selected_tentative_route_distance<=vehicle_range)&
-					(selected_tentative_route_time<=vehicle_time))
+			selected_tentative_route_weight=(
+				tentative_route_weights[selected_route_index])
 
-				# If the merged route is an improvement and feasible it is integrated
-				if improvement and feasible:
 
-					# Adding the merged route
-					routes[first_route_index]=selected_tentative_route
-					route_distances[first_route_index]=selected_tentative_route_distance
+			# Checking if the merged route represents savings over the individual routes
+			improvement=selected_tentative_route_weight[0]<=(
+				route_weights[first_route_index][0]+
+				route_weights[second_route_index][0]
+				)
 
-					# Removing the individual routes
-					routes.remove(routes[second_route_index])
-					route_distances.remove(route_distances[second_route_index])
+			selected_tentative_route_offset=([
+				sum([primary_offset for idx in range(1,len(selected_tentative_route)-1)]),
+				sum([secondary_offset for idx in range(1,len(selected_tentative_route)-1)]),
+				])
+			# print(selected_tentative_route_offset,secondary_offset,selected_tentative_route)
 
+			# Checking if the merged route is feasible
+			feasible=(
+				(
+					selected_tentative_route_weight[0]+
+					selected_tentative_route_offset[0]<=primary_limit)&
+				(
+					selected_tentative_route_weight[1]+
+					selected_tentative_route_offset[1]<=secondary_limit)
+				)
+
+			# If the merged route is an improvement and feasible it is integrated
+			if improvement and feasible:
+
+				# Adding the merged route
+				routes[first_route_index]=selected_tentative_route
+				route_weights[first_route_index]=selected_tentative_route_weight
+
+				# Removing the individual routes
+				routes.remove(routes[second_route_index])
+				route_weights.remove(route_weights[second_route_index])
 
 		# Removing the savings
-		savings[:,best_savings_link[1],best_savings_link[2]]=0
-		savings[:,best_savings_link[2],best_savings_link[1]]=0
+		primary_savings[:,best_savings_link[1],best_savings_link[2]]=0
+		primary_savings[:,best_savings_link[2],best_savings_link[1]]=0
 
 	return routes,success
+
+def ValidRoute(graph,route,min_weight,weight='length'):
+
+	from_indices=route[:-1]
+	to_indices=route[1:]
+
+	valid=True
+
+	for idx in range(len(from_indices)):
+
+		distance=graph[from_indices[idx]][to_indices[idx]][weight]
+
+		if distance<min_weight:
+
+			valid=False
+			break
+
+	return valid
+
+def RouteDistance(graph,route,weight='length'):
+
+	from_indices=route[:-1]
+	to_indices=route[1:]
+
+	route_distance=0
+
+	for idx in range(len(from_indices)):
+
+		route_distance+=graph._adj[from_indices[idx]][to_indices[idx]][weight]
+
+	return route_distance
 
 def AcceptanceProbability(e,e_prime,temperature):
 
@@ -255,8 +394,8 @@ def Acceptance(e,e_prime,temperature):
 
 	return AcceptanceProbability(e,e_prime,temperature)>np.random.rand()
 
-def RouteOptimization(graph,route,steps=100,distance_field='distance',
-	initial_temperature=1,min_distance=0):
+def RouteOptimization(graph,route,steps=100,weight='length',
+	initial_temperature=1,min_weight=0):
 
 	# At lease 2 destinations need to be present for annealing
 	if len(route)<4:
@@ -269,11 +408,11 @@ def RouteOptimization(graph,route,steps=100,distance_field='distance',
 		temperature=initial_temperature
 
 		# Getting initial route distance
-		route_distance=RouteDistance(graph,route,distance_field=distance_field)
+		route_distance=RouteDistance(graph,route,weight=weight)
 
 		# Saving initial route and distance
 		initial_route=route.copy()
-		initial_route_distance=route_distance.copy()
+		initial_route_distance=route_distance
 
 		# print(route_distance)
 
@@ -290,15 +429,15 @@ def RouteOptimization(graph,route,steps=100,distance_field='distance',
 			tentative_route[swap_indices[1]]=route[swap_indices[0]]
 
 			# Checking if tentative route is valid
-			valid_route=ValidRoute(graph,tentative_route,min_distance,
-				distance_field=distance_field)
+			valid_route=ValidRoute(graph,tentative_route,min_weight,
+				weight=weight)
 
 			# Proceeding only for valid routes
 			if valid_route:
 
 				# Computing tentative route distance
 				tentative_route_distance=RouteDistance(graph,tentative_route,
-					distance_field=distance_field)
+					weight=weight)
 
 				# Determining acceptance of tentative route
 				accept=Acceptance(route_distance,tentative_route_distance,temperature)

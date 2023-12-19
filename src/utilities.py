@@ -123,10 +123,10 @@ def RMSE(x,y):
 
 	return np.sqrt(((x-y)**2).sum()/len(x))
 
-def CondPrint(message,disp=True):
+def CondPrint(message,disp=True,*args,**kwargs):
 
 	if disp:
-		print(message)
+		print(message,**kwargs)
 
 
 #Custom progress bar

@@ -37,14 +37,14 @@ def Dijkstra(
         iterable, the computed paths may begin from any one of the start
         nodes.
 
-    weight: edge field or list of edge fields
+    weight : edge field or list of edge fields
         If one edge field is provided shortest path will be computed for
         that field and that field will be included in the distance output.
         If a list of edge fields is provided then shortest paths will be 
         computed for the first field in the list but all fields will be
         included in the distance output.
 
-    paths: Boolean
+    paths : Boolean
         Boolean whether or not to compute paths dictionary. If False None
         is returned for the paths output.
 

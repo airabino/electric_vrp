@@ -11,6 +11,7 @@ Adjacency - dictionary {id:{field:value}
 '''
 
 import json
+import numpy as np
 import pandas as pd
 
 def Read(files):
@@ -49,16 +50,16 @@ def Parse(chargers_df):
 
 	return chargers
 
-def Write(chargers,filename='Data/GeneratedData/chargers.json'):
+def Write(chargers,filename='vertices.json',permission='w'):
 	'''
 	Writes data to JSON, overwrites previous
 	'''
 
-	with open(filename,'w') as file:
+	with open(filename,permission) as file:
 
 		json.dump(chargers,file,indent=4)
 
-def Append(chargers,filename='Data/GeneratedData/chargers.json'):
+def Append(chargers,filename='vertices.json'):
 	'''
 	Writes data to JSON, appends to previous
 	'''
@@ -67,7 +68,7 @@ def Append(chargers,filename='Data/GeneratedData/chargers.json'):
 
 		json.dump(chargers,file,indent=4)
 
-def Load(filename='Data/GeneratedData/chargers.json'):
+def Load(filename='vertices.json'):
 	'''
 	Loads the chargers
 	'''
@@ -77,3 +78,28 @@ def Load(filename='Data/GeneratedData/chargers.json'):
 		chargers=json.load(file)
 
 	return chargers
+	
+
+def Exclude(df,attributes):
+	'''
+	Removes vertices that meet criteria
+	'''
+
+	for attribute,values in attributes.items():
+
+		df=df[~np.isin(df[attribute].to_numpy(),values)].copy()
+		df.reset_index(inplace=True,drop=True)
+
+	return df
+
+def Keep(df,attributes):
+	'''
+	Removes vertices that do not meet criteria
+	'''
+
+	for attribute,values in attributes.items():
+
+		df=df[np.isin(df[attribute].to_numpy(),values)].copy()
+		df.reset_index(inplace=True,drop=True)
+
+	return df
