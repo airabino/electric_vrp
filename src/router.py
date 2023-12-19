@@ -270,10 +270,11 @@ def ClarkeWright(
 			best_savings_link[1],
 			best_savings_link[2],
 			)
+		# print(best_savings_link)
 
 		k+=time.time()-t0
 
-		print([idx,primary_savings.sum(),k/(idx+1)],end='\r')
+		# print([idx,primary_savings.sum(),k/(idx+1)],end='\r')
 
 		# If a valid merge combination is found create a tentative route and evaluate
 		if first_route_index and second_route_index:
@@ -290,7 +291,7 @@ def ClarkeWright(
 			# Finding the best of the tentative routes
 			tentative_route_weights=[]
 
-			for tentative_route in tentative_routes:
+			for tentative_route in enumerate(tentative_routes):
 
 				tentative_route_primary_weight=(
 					route_weights[first_route_index][0]+
@@ -326,17 +327,25 @@ def ClarkeWright(
 				sum([primary_offset for idx in range(1,len(selected_tentative_route)-1)]),
 				sum([secondary_offset for idx in range(1,len(selected_tentative_route)-1)]),
 				])
-			# print(selected_tentative_route_offset,secondary_offset,selected_tentative_route)
 
 			# Checking if the merged route is feasible
 			feasible=(
 				(
-					selected_tentative_route_weight[0]+
-					selected_tentative_route_offset[0]<=primary_limit)&
+					(selected_tentative_route_weight[0]+
+					selected_tentative_route_offset[0])<=primary_limit)&
 				(
-					selected_tentative_route_weight[1]+
-					selected_tentative_route_offset[1]<=secondary_limit)
+					(selected_tentative_route_weight[1]+
+					selected_tentative_route_offset[1])<=secondary_limit)
 				)
+
+			# if selected_tentative_route_offset[1]>secondary_limit:
+
+			# 	print(selected_tentative_route_weight[1],
+			# 		selected_tentative_route_offset[1],
+			# 		secondary_limit,
+			# 		selected_tentative_route_offset,
+			# 		best_savings_link,
+			# 		feasible)
 
 			# If the merged route is an improvement and feasible it is integrated
 			if improvement and feasible:

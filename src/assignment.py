@@ -1,7 +1,35 @@
 import json
 import math
 import random
+import numpy as np
 import pandas as pd
+
+from .utilities import FullFact
+
+def Assign(items,buckets,seed=None):
+    '''
+    distribute items randomly among sets such that all sets are
+    close to evenly represented
+    '''
+
+    rng=np.random.default_rng(seed)
+
+    assignment={}
+
+    item_bins=[[] for idx in range(len(buckets))]
+
+    for item in items:
+
+        bin_index=rng.integers(0,len(item_bins))
+
+        item_bins[bin_index].append(item)
+
+    for idx,bucket in enumerate(buckets):
+
+        assignment[bucket]=np.array(item_bins[idx])
+
+    return assignment
+
 
 def assign_chargers_to_vehicles(vehicles, chargers):
     """
