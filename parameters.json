@@ -1,5 +1,16 @@
 {
 	"rng_seed":12345,
+	"route_fields":[
+		"ID",
+		"Station Name",
+		"City",
+		"State",
+		"ZIP",
+		"Longitude",
+		"Latitude",
+		"DCFC",
+		"EV Network Clean"
+	],
 	"charger_network_vehicle_assignment":{
 		"Other":["Bolt","Lightning","IONIQ 5"],
 		"ChargePoint Network":["Bolt","Lightning","IONIQ 5"],

@@ -1,6 +1,6 @@
 #Data file structure
 Data/
-*.json
+vertices.json
 
 #Keys file
 keys.txt

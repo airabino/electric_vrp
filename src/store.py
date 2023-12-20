@@ -30,7 +30,7 @@ def Read(files):
 
 	return out
 
-def Parse(chargers_df):
+def Parse(chargers_df,fields):
 	'''
 	converts data to nested dict format
 	'''
@@ -44,7 +44,12 @@ def Parse(chargers_df):
 			'Latitude':row['Latitude'],
 			'Adjacency':{},
 			'Added':0,
+			'visited':0,
 		}
+
+		for field in fields:
+
+			charger[field]=row[field]
 
 		chargers[int(row['ID'])]=charger
 
@@ -59,14 +64,18 @@ def Write(chargers,filename='vertices.json',permission='w'):
 
 		json.dump(chargers,file,indent=4)
 
-def Append(chargers,filename='vertices.json'):
+def Append(vertices,filename='vertices.json'):
 	'''
 	Writes data to JSON, appends to previous
 	'''
 
+	vertices_existing=Load(filename)
+
+	vertices=dict(**vertices_existing,**vertices)
+
 	with open(filename,'a') as file:
 
-		json.dump(chargers,file,indent=4)
+		json.dump(vertices,file,indent=4)
 
 def Load(filename='vertices.json'):
 	'''

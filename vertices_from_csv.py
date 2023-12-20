@@ -131,7 +131,7 @@ if __name__ == "__main__":
 
 	#Creating vertices dictionary
 	CondPrint(str_color + 'Creating vertices', args.verbose)
-	vertices = src.store.Parse(df)
+	vertices = src.store.Parse(df,fields=['EV Network Clean'])
 
 	#Writing to file
 	CondPrint(str_color + 'Writing to file', args.verbose)

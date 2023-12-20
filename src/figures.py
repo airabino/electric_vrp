@@ -1,20 +1,12 @@
 import os
 import sys
 import time
-import json
-import requests
-import warnings
 import matplotlib
 import numpy as np
 import numpy.random as rand
-import pandas as pd
-import geopandas as gpd
-import scipy.stats as st
 import matplotlib.pyplot as plt
-import matplotlib.patches as ptc
-from matplotlib.colors import LinearSegmentedColormap
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
+from matplotlib.colors import LinearSegmentedColormap
 
 from .utilities import IsIterable
 
@@ -179,25 +171,6 @@ def PlotBar(data,x_shift,figsize=(8,8),ax=None,bar_kwargs={},axes_kwargs={}):
 
 	x=[idx for idx in range(len(data))]
 	ax.bar(x,data,**bar_kwargs)
-
-	ax.set(**axes_kwargs)
-
-	if return_fig:
-		return fig
-
-def PlotCircle(coords,r=1,figsize=(8,8),ax=None,patch_kwargs={},axes_kwargs={}):
-
-	return_fig=False
-	if ax==None:
-		fig,ax=plt.subplots(figsize=figsize)
-		return_fig=True
-
-	if not IsIterable(r):
-		r=np.ones(len(coords))*r
-
-	for idx,xy in enumerate(coords):
-
-		ax.add_patch(ptc.Circle(xy,r[idx],**patch_kwargs))
 
 	ax.set(**axes_kwargs)
 

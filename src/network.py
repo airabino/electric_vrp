@@ -103,18 +103,30 @@ def NX_Graph_From_Vertices(vertices):
 
 	edge_ids=[]
 
+	required_fields=['Longitude','Latitude','Added','Visited']
+
 	for vertex_from,vertex in vertices.items():
 
-		vertex_info.append(
-			(
-				vertex_from,
+		vertex_from_info=(
+			vertex_from,
 				{
-				'id':vertex,
-				'x':vertex['Longitude'],
-				'y':vertex['Latitude'],
+					'id':vertex_from,
+					'x':vertex['Longitude'],
+					'y':vertex['Latitude'],
+					'added':vertex['Added'],
+					'visited':vertex['Visited'],
 				}
-				)
 			)
+
+		additional_fields=list(vertex.keys())
+		additional_fields=np.setdiff1d(additional_fields,required_fields)
+
+		for key in additional_fields:
+
+			vertex_from_info[1][key]=vertex[key]
+
+		vertex_info.append(vertex_from_info)
+			
 
 		# vertex_ids[idx]=vertex['id']
 
@@ -444,3 +456,20 @@ def Add_Locations(
 			chargers[charger_id]['Added']=1.
 
 	return chargers
+
+def Subgraph(graph,nodes):
+
+	SG = graph.__class__()
+	SG.add_nodes_from((n, graph.nodes[n]) for n in nodes)
+	if SG.is_multigraph():
+		SG.add_edges_from((n, nbr, key, d)
+			for n, nbrs in graph.adj.items() if n in nodes
+			for nbr, keydict in nbrs.items() if nbr in nodes
+			for key, d in keydict.items())
+	else:
+		SG.add_edges_from((n, nbr, d)
+			for n, nbrs in graph.adj.items() if n in nodes
+			for nbr, d in nbrs.items() if nbr in nodes)
+	SG.graph.update(graph.graph)
+
+	return SG
