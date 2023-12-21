@@ -1,6 +1,6 @@
 {
 	"rng_seed":12345,
-	"route_fields":[
+	"vertex_fields":[
 		"ID",
 		"Station Name",
 		"City",

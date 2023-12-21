@@ -1,6 +1,7 @@
 #Data file structure
 Data/
 vertices.json
+routes.json
 
 #Keys file
 keys.txt

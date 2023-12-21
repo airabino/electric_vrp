@@ -55,6 +55,21 @@ def Parse(chargers_df,fields):
 
 	return chargers
 
+def AddFields(vertices,df,fields):
+	'''
+	Adds fields from df to vertices
+	'''
+
+	for vertex_id,vertex in vertices.items():
+
+		row=df[df['ID']==int(vertex_id)]
+
+		for field in fields:
+
+			vertex[field]=str(row[field].values[0])
+
+	return vertices
+
 def Write(chargers,filename='vertices.json',permission='w'):
 	'''
 	Writes data to JSON, overwrites previous
@@ -79,14 +94,14 @@ def Append(vertices,filename='vertices.json'):
 
 def Load(filename='vertices.json'):
 	'''
-	Loads the chargers
+	Loads the vertices
 	'''
 
 	with open(filename,'r') as file:
 
-		chargers=json.load(file)
+		vertices=json.load(file)
 
-	return chargers
+	return vertices
 	
 
 def Exclude(df,attributes):

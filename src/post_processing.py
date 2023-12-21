@@ -4,7 +4,7 @@ import time
 import numpy as np
 import pandas as pd
 
-def AddRouteInformation(raw_routes,df,fields):
+def AddRouteInformation(graph,raw_routes,fields):
 
 	routes=[]
 
@@ -14,11 +14,9 @@ def AddRouteInformation(raw_routes,df,fields):
 
 		for stop in raw_route:
 
-			row=df[df['ID']==int(stop)]
-
 			for field in fields:
 
-				route[field].append(str(row[field].values[0]))
+				route[field].append(graph._node[stop][field])
 
 		routes.append(route)
 

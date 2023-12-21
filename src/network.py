@@ -119,7 +119,7 @@ def NX_Graph_From_Vertices(vertices):
 			)
 
 		additional_fields=list(vertex.keys())
-		additional_fields=np.setdiff1d(additional_fields,required_fields)
+		# additional_fields=np.setdiff1d(additional_fields,required_fields)
 
 		for key in additional_fields:
 

@@ -9,7 +9,7 @@ Example Call:
 
 All vertices
 
-python vertices_from_csv.py -i 'UCDavis_L2_Weighted_Sample.csv' 'UCDavis_DCFC_Weighted_Sample.csv' 'Depots.csv' -o vertices.json -p w -v
+python vertices_from_csv.py -i 'UCDavis_L2_Weighted_Sample.csv' 'UCDavis_DCFC_Weighted_Sample.csv' 'Depots.csv' -o vertices.json -p parameters.json -v
 
 Selection by county
 

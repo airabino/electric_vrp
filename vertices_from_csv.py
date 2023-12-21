@@ -69,7 +69,7 @@ parser.add_argument(
 	)
 
 parser.add_argument(
-	'-p', '--permission',
+	'-P', '--permission',
 	help = 'Output file permission - w for overwrite, a for append - default is w',
 	default = 'w',
 	)
@@ -78,6 +78,20 @@ parser.add_argument(
 	'-v', '--verbose',
 	help = 'Optional status printing',
 	action='store_true',
+	)
+
+parser.add_argument(
+	'-p', '--parameters_file',
+	help = 'Required: .json file containing vertices',
+	)
+
+parser.add_argument(
+	'-f', '--fields',
+	help = (
+		'Fields to add to vertices' +
+		'If a keyword contains spaces use quotes ex: \'EV Network Clean\''
+		),
+	nargs = '+',
 	)
 
 def ParseAttributes(arguments):
@@ -129,9 +143,24 @@ if __name__ == "__main__":
 
 		df = src.store.Keep(df,attributes)
 
+	# Fields
+	if args.parameters_file is not None:
+
+		CondPrint('Loading parameters file', args.verbose)
+		parameters = src.store.Load(args.parameters_file)
+		fields = parameters['vertex_fields']
+
+	elif args.fields is not None:
+
+		fields = args.fields
+
+	else:
+
+		print('Please specify either a parameters file or fields')
+
 	#Creating vertices dictionary
 	CondPrint(str_color + 'Creating vertices', args.verbose)
-	vertices = src.store.Parse(df,fields=['EV Network Clean'])
+	vertices = src.store.Parse(df,fields=fields)
 
 	#Writing to file
 	CondPrint(str_color + 'Writing to file', args.verbose)
