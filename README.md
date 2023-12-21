@@ -1,5 +1,7 @@
 Repository for building a graph for VRP
 
+produces routes
+
 This repository contains two top-level modules which are as follows:
 
 vertices_from_csv.py - module for taking data from formatted CSV files and creating
@@ -26,3 +28,7 @@ python compute_adjacency.py -i vertices.json -r Data/RoadMap/roadmap.pkl -v -a
 Compute non-added edges
 
 python compute_adjacency.py -i vertices.json -r Data/RoadMap/roadmap.pkl -v
+
+Compute routes:
+
+python compute_routes.py -i vertices.json -p parameters.json -v
