@@ -1,31 +1,6 @@
 import sys
 import time
-import signal
 import numpy as np
-
-from scipy.stats import t
-
-
-from contextlib import contextmanager
-from scipy.special import comb
-
-
-'''
-Execution time limiter from:
-https://stackoverflow.com/questions/366682/how-to-limit-execution-time-of-a-function-call
-'''
-class TimeoutException(Exception): pass
-
-@contextmanager
-def TimeLimit(seconds):
-	def SignalHandler(signum,frame):
-		raise TimeoutException()
-	signal.signal(signal.SIGALRM, SignalHandler)
-	signal.alarm(seconds)
-	try:
-		yield
-	finally:
-		signal.alarm(0)
 
 continental_us_fips=([1,4,5,6,8,9,10,11,12,13,16,17,18,19,20,21,22,23,24,25,26,
 	27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,44,45,46,47,48,49,50,
@@ -60,9 +35,6 @@ def GiniCoefficient(x):
 
 	return total/(len(x)**2*np.mean(x))
 
-def BinomialDistribution(n,r,p):
-	return comb(n,r)*p**r*(1-p)**(n-r)
-
 def IsIterable(value):
 	return hasattr(value,'__iter__')
 
@@ -71,22 +43,6 @@ def TopNIndices(array,n):
 
 def BottomNIndices(array,n):
 	return sorted(range(len(array)), key=lambda i: array[i])[:n]
-
-def T_Test(x,y,alpha):
-	x_n=len(x)
-	y_n=len(y)
-	x_mu=x.mean()
-	y_mu=y.mean()
-	x_sig=x.std()
-	y_sig=y.std()
-	x_se=x_sig/np.sqrt(x_n)
-	y_se=y_sig/np.sqrt(y_n)
-	x_y_se=np.sqrt(x_se**2+y_se**2)
-	T=(x_mu-y_mu)/x_y_se
-	DF=x_n+y_n
-	T0=t.ppf(1-alpha,DF)
-	P=(1-t.cdf(np.abs(T),DF))*2
-	return (P<=alpha),T,P,T0,DF
 
 def FullFact(levels):
 	n = len(levels)  # number of factors

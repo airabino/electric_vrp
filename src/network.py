@@ -21,22 +21,10 @@ import geopandas as gpd
 import pickle as pkl
 import networkx as nx
 
-from scipy.stats import binom as binom_dist
 from scipy.spatial import KDTree
 
 from .utilities import ProgressBar,Haversine
 from .dijkstra import Dijkstra
-
-# Assumed road speed limits based on classification
-# (https://www.census.gov/library/reference/code-lists/route-type-codes.html)
-road_class_speeds={
-	'C':24.58, # [m/s] - 55 mph
-	'I':31.29, # [m/s] - 70 mph
-	'S':29.05, # [m/s] - 65 mph
-	'U':29.05, # [m/s] - 65 mph
-	'N':15.64, # [m/s] - 35 mph
-	'O':11.17, # [m/s] - 25 mph
-}
 
 # Functions for loading the road map from shapefile
 
