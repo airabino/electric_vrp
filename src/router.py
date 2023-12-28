@@ -38,15 +38,16 @@ def Assign(items,buckets,seed=None):
 
 def ProcessInputs(graph,parameters):
 
-	charger_networks=parameters['charger_network_vehicle_assignment'].keys()
+	vertex_group_field=parameters['vertex_group_field']
+	charger_networks=parameters['vertex_group_vehicle_assignment'].keys()
 
 	vehicle_nodes={}
 
-	for network,vehicles in parameters['charger_network_vehicle_assignment'].items():
+	for network,vehicles in parameters['vertex_group_vehicle_assignment'].items():
 		
 		network_nodes=np.array(
 			[key for key,val in graph._node.items() if \
-			 val['EV Network Clean']==network])
+			 val[vertex_group_field]==network])
 
 		assignment=Assign(network_nodes,vehicles,seed=parameters['rng_seed'])
 

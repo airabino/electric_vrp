@@ -82,12 +82,7 @@ def Fields_From_Vertices(vertices,keys=[]):
 
 def NX_Graph_From_Vertices(vertices):
 
-	# vertex_ids=np.array(list(vertices.keys()))
-
-	# x,y=np.array([[v['Longitude'],v['Latitude']] for v in vertices.values()]).T
-
 	vertex_info=[]
-	# keep=[True]*len(vertex_ids)
 
 	edge_ids=[]
 
@@ -107,30 +102,20 @@ def NX_Graph_From_Vertices(vertices):
 			)
 
 		additional_fields=list(vertex.keys())
-		# additional_fields=np.setdiff1d(additional_fields,required_fields)
 
 		for key in additional_fields:
 
 			vertex_from_info[1][key]=vertex[key]
 
 		vertex_info.append(vertex_from_info)
-			
-
-		# vertex_ids[idx]=vertex['id']
 
 		edge_ids_temp=[]
 
 		for vertex_to,edge in vertex['Adjacency'].items():
-			# print(edge)
-			# break
-
-			# keep[idx]=True
 
 			edge_ids_temp.append((vertex_from,vertex_to,edge))
 
 		edge_ids.extend(edge_ids_temp)
-
-	# return vertex_info, edge_ids
 
 	nx_graph=nx.Graph()
 	nx_graph.add_nodes_from(vertex_info)
