@@ -293,9 +293,10 @@ def nlg_from_dataframe(dataframe, node_attributes = {}):
 
 	for source_idx, source in dataframe.iterrows():
 
-		# Adding id field
+		# Adding id field and status field - status == 0 for adjacency not computed
 		node = {
 			'id': source_idx,
+			'status': 0,
 			}
 
 		for field, fun in node_attributes.items():

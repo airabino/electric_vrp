@@ -1,6 +1,7 @@
 # __init__.py
 
 from . import utilities
+from . import progress_bar
 from . import figures # Graph and route plotting
 from . import network
 from . import graph # Graph handling

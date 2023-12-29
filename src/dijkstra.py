@@ -11,7 +11,7 @@ want to know path 'time', this edited code allows for this to be done efficientl
 from heapq import heappop, heappush
 from itertools import count
 
-def Dijkstra(graph, sources, targets = [], weights = {},return_paths = False):
+def dijkstra(graph, sources, targets = [], weights = {},return_paths = False):
     """Uses Dijkstra's algorithm to find shortest weighted paths
 
     Code is based on (is an edited version of):
