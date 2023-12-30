@@ -63,7 +63,7 @@ def single_source_dijkstra(atlas, source, targets, weights, return_paths = False
 	route_weights, routes = dijkstra(
 		atlas,
 		[source],
-		targets,
+		[],
 		weights,
 		return_paths,
 		)
@@ -171,6 +171,10 @@ def adjacency(atlas, graph, weights, **kwargs):
 
 		sources = [targets[idx] for idx, status in enumerate(statuses) if status == 0]
 
+	for n in list(graph.nodes):
+
+		graph._node[n]['status'] = 1
+
 	# Computing routes between selected sources and all targets
 	results = multiple_source_dijkstra(atlas, sources, targets, weights, **kwargs)
 
@@ -181,8 +185,6 @@ def adjacency(atlas, graph, weights, **kwargs):
 
 		source = atlas_to_graph[result.pop('source')]
 		target = atlas_to_graph[result.pop('target')]
-
-		graph._node[source]['status'] = 1
 
 		edges.append((source, target, result))
 

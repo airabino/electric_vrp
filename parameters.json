@@ -1,0 +1,146 @@
+{
+	"rng_seed":12345,
+	"node_attributes":{
+		"id":"lambda r: r['ID']",
+		"name":"lambda r: r['Station Name']",
+		"city":"lambda r: r['City']",
+		"state":"lambda r: r['State']",
+		"zip":"lambda r: r['ZIP']",
+		"x":"lambda r: r['Longitude']",
+		"y":"lambda r: r['Latitude']",
+		"dcfc":"lambda r: r['DCFC']",
+		"ev_network_clean":"lambda r: r['EV Network Clean']"
+	},
+	"link_fields":[
+		"length",
+		"time"
+	],
+	"charger_network_vehicle_assignment":{
+		"Other":["Bolt","Lightning","IONIQ 5"],
+		"ChargePoint Network":["Bolt","Lightning","IONIQ 5"],
+		"eVgo Network":["Bolt","Lightning","IONIQ 5"],
+		"Electrify America":["Bolt","Lightning","IONIQ 5"],
+		"Tesla":["Model 3"],
+		"FLO":["Bolt","Lightning","IONIQ 5"],
+		"Volta":["Bolt","Lightning","IONIQ 5"],
+		"Tesla Destination":["Model 3"]
+	},
+	"depot_vertices":[
+		"1000000000",
+		"2000000000"
+	],
+	"vehicles":{
+		"Bolt":[
+			{
+				"max_route_distance":400e3,
+				"min_route_distance":0,
+				"max_leg_distance":300e3,
+				"min_leg_distance":20e3,
+				"stop_added_distance":0,
+				"max_route_time":10800,
+				"min_route_time":0,
+				"max_leg_time":10800,
+				"min_leg_time":0,
+				"stop_added_time":1800,
+				"number":5
+			},
+			{
+				"max_route_distance":400e3,
+				"min_route_distance":0,
+				"max_leg_distance":300e3,
+				"min_leg_distance":20e3,
+				"stop_added_distance":0,
+				"max_route_time":28800,
+				"min_route_time":0,
+				"max_leg_time":28800,
+				"min_leg_time":0,
+				"stop_added_time":1800,
+				"number":0
+			}
+		],
+		"Model 3":[
+			{
+				"max_route_distance":500e3,
+				"min_route_distance":0,
+				"max_leg_distance":375e3,
+				"min_leg_distance":20e3,
+				"stop_added_distance":0,
+				"max_route_time":10800,
+				"min_route_time":0,
+				"max_leg_time":10800,
+				"min_leg_time":0,
+				"stop_added_time":1800,
+				"number":5
+			},
+			{
+				"max_route_distance":500e3,
+				"min_route_distance":0,
+				"max_leg_distance":375e3,
+				"min_leg_distance":20e3,
+				"stop_added_distance":0,
+				"max_route_time":28800,
+				"min_route_time":0,
+				"max_leg_time":28800,
+				"min_leg_time":0,
+				"stop_added_time":1800,
+				"number":0
+			}
+		],
+		"Lightning":[
+			{
+				"max_route_distance":400e3,
+				"min_route_distance":0,
+				"max_leg_distance":300e3,
+				"min_leg_distance":20e3,
+				"stop_added_distance":0,
+				"max_route_time":10800,
+				"min_route_time":0,
+				"max_leg_time":10800,
+				"min_leg_time":0,
+				"stop_added_time":1800,
+				"number":5
+			},
+			{
+				"max_route_distance":400e3,
+				"min_route_distance":0,
+				"max_leg_distance":300e3,
+				"min_leg_distance":20e3,
+				"stop_added_distance":0,
+				"max_route_time":28800,
+				"min_route_time":0,
+				"max_leg_time":28800,
+				"min_leg_time":0,
+				"stop_added_time":1800,
+				"number":0
+			}
+		],
+		"IONIQ 5":[
+			{
+				"max_route_distance":350e3,
+				"min_route_distance":0,
+				"max_leg_distance":265e3,
+				"min_leg_distance":20e3,
+				"stop_added_distance":0,
+				"max_route_time":10800,
+				"min_route_time":0,
+				"max_leg_time":10800,
+				"min_leg_time":0,
+				"stop_added_time":1800,
+				"number":5
+			},
+			{
+				"max_route_distance":350e3,
+				"min_route_distance":0,
+				"max_leg_distance":265e3,
+				"min_leg_distance":20e3,
+				"stop_added_distance":0,
+				"max_route_time":28800,
+				"min_route_time":0,
+				"max_leg_time":28800,
+				"min_leg_time":0,
+				"stop_added_time":1800,
+				"number":0
+			}
+		]
+	}
+}

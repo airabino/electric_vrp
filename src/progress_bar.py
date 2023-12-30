@@ -51,14 +51,14 @@ class ProgressBar():
 
 		columns_used = len(str_1 + str_3 + str_4 + str_5)
 
-		bar_length = self.message_length - columns_used
+		bar_length = self.message_length - columns_used - 5
 
 		arrow='-'*int(percent/100*bar_length-1)+'>'
 		spaces=' '*(bar_length-len(arrow))
 
 		str_2 = f" [{arrow}{spaces}]"
 
-		message = str_0 + str_1 + str_2 + str_3 + str_4 + str_5 + str_6
+		message = str_0 + str_1 + str_2 + str_3 + str_4 + str_5
 
 		sys.stdout.write(message)
 		sys.stdout.flush()
@@ -93,6 +93,6 @@ class PBIterator():
 
 			if self.ProgressBar.disp:
 				
-				print('\n')
+				print('\n\033[0m')
 
 			raise StopIteration

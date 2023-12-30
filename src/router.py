@@ -5,10 +5,13 @@ import numpy as np
 import networkx as nx
 
 from copy import deepcopy
+from operator import itemgetter
+from itertools import product as iter_prod
 
 from .utilities import ProgressBar
+from .graph import subgraph
 
-from operator import itemgetter
+
 
 #CEC Specific functions
 
@@ -173,40 +176,171 @@ def ProduceRoutesVehicleDepot(graph,vehicle,depot,parameters,adjacency):
 
 #General functions
 
-def VoronoiCells(graph,center_nodes,nodes=None,weight=None):
+def voronoi_cells(graph, center_nodes, nodes = None, weight = None):
 	'''
 	assign nodes to reference nodes by proximity
 	'''
 
-	voronoi_cells=nx.voronoi_cells(graph,center_nodes,weight=weight)
+	voronoi_cells = nx.voronoi_cells(graph, center_nodes, weight = weight)
 
 	for key in voronoi_cells.keys():
 
 		if nodes is not None:
 
-			voronoi_cells[key]=np.intersect1d(list(voronoi_cells[key]),nodes)
+			voronoi_cells[key] = np.intersect1d(list(voronoi_cells[key]), nodes)
 
 		else:
 
-			voronoi_cells[key]=np.array(list(voronoi_cells[key]))
+			voronoi_cells[key] = np.array(list(voronoi_cells[key]))
 
 	return voronoi_cells
 
-def ProduceAdjacency(graph,nodelist=None,weights=[]):
+def assign_depot(graph, depot_nodes, nodes = None, weight = None, field = 'depot'):
 	'''
-	Produces list of adjacency matrices for each weight in weights
+	Assign nodes to depots using weighted Voronoi cells
 	'''
-	adjacency=[]
 
-	for weight in weights:
+	vc = voronoi_cells(graph, depot_nodes, nodes = nodes, weight = weight)
 
-		adjacency.append(
-			nx.to_numpy_array(graph,nodelist=nodelist,weight=weight)
-			)
+	for depot in depot_nodes:
+
+		for node in vc[depot]:
+
+			graph._node[node][field] = depot
+
+	for node in graph.nodes:
+
+		if field not in graph._node[node].keys():
+
+			graph._node[node][field] = ''
+
+	return graph
+
+def assign_rng(graph, seed = None, field = 'rng'):
+	'''
+	Assign a random number to each node
+	'''
+
+	rng  = np.random.default_rng(seed)
+
+	for node in graph.nodes:
+		graph._node[node][field] = rng.random()
+
+	return graph
+
+def assign_vehicle(graph, vehicles, field = 'vehicle'):
+	'''
+	Assigns vehicles based on vehicle node_criteria functions
+	'''
+
+	for vehicle, vehicle_information in vehicles.items():
+
+		for key, fun in vehicle_information['node_criteria'].items():
+
+			if type(fun) is str:
+
+				vehicles[vehicle]['node_criteria'][key] = eval(fun)
+	
+	for vehicle, vehicle_information in vehicles.items():
+
+		for node in graph.nodes:
+
+			meets_criteria = True
+
+			try:
+
+				for key, fun in vehicle_information['node_criteria'].items():
+
+					meets_criteria *= fun(graph._node[node])
+
+			except:
+
+				meets_criteria = False
+
+			if meets_criteria:
+
+				graph._node[node][field] = vehicle
+
+	for node in graph.nodes:
+
+		if field not in graph._node[node].keys():
+
+			graph._node[node][field] = ''
+
+	return graph
+
+def produce_subgraphs(graph, categories):
+
+	subgraphs = {}
+
+	combinations = list(iter_prod(*[v for v in categories.values()]))
+
+	# print(combinations)
+
+	for combination in combinations:
+
+		nodelist = []
+
+		for node in graph.nodes:
+
+			include = True
+
+			for idx,field in enumerate(categories.keys()):
+
+				include *= graph._node[node][field] == combination[idx]
+
+			if include:
+
+				nodelist.append(node)
+
+		subgraphs[combination] = subgraph(graph, nodelist)
+
+	return subgraphs
+
+def produce_adjacency(subgraphs, weights = []):
+
+	adjacency = {}
+
+	for key, value in subgraphs.items():
+
+		adjacency[key] = adjacency_matrices(value, weights = weights)
 
 	return adjacency
 
-def ComputeSavingsMatrix(adjacency,depot_index=0,bounds=(0,np.inf)):
+def adjacency_matrices(graph, nodelist = None, weights = []):
+	'''
+	Produces list of adjacency matrices for each weight in weights
+	'''
+	adjacency = {}
+
+	for weight in weights:
+
+		adjacency[weight] = nx.to_numpy_array(graph, nodelist = nodelist, weight = weight)
+
+	return adjacency
+
+def produce_assignments(subgraphs):
+
+	subgraph_assignments = {}
+
+	for key, value in subgraphs.items():
+
+		node_to_idx, idx_to_node = assignments(list(value.nodes))
+
+		subgraph_assignments[key] = {}
+		subgraph_assignments[key]['node_to_idx'] = node_to_idx
+		subgraph_assignments[key]['idx_to_node'] = idx_to_node
+
+	return subgraph_assignments
+
+def assignments(nodes):
+
+	node_to_idx = {nodes[idx]: idx for idx in range(len(nodes))}
+	idx_to_node = {val: key for key, val in node_to_idx.items()}
+
+	return node_to_idx, idx_to_node
+
+def savings_matrix(adjacency, depot_index = 0, bounds = (0, np.inf)):
 	'''
 	Computing the savings matrix from an adjacency matrix.
 
@@ -224,47 +358,47 @@ def ComputeSavingsMatrix(adjacency,depot_index=0,bounds=(0,np.inf)):
 	Requires the definition of a depot location
 	'''
 
-	cost_from,cost_to=np.meshgrid(adjacency[:,depot_index],adjacency[depot_index])
+	cost_from, cost_to = np.meshgrid(adjacency[:, depot_index], adjacency[depot_index])
 
-	savings=cost_from+cost_to-adjacency
+	savings = cost_from + cost_to - adjacency
 
 	# Negative savings should nobe be considered
-	savings[savings<0]=0
+	savings[savings < 0] = 0
 
 	# No self-savings
-	savings[np.diag_indices(adjacency.shape[0])]=0
+	savings[np.diag_indices(adjacency.shape[0])] = 0
 
 	#No savings from infeasible edges
-	savings[adjacency<bounds[0]]=0
-	savings[adjacency>bounds[1]]=0
+	savings[adjacency < bounds[0]] = 0
+	savings[adjacency > bounds[1]] = 0
 
 	return savings
 
-def InitialRoutes(adjacency,depot_indices):
+def initial_routes(adjacency, depot_indices):
 	'''
 	Prodces list of initial 1-stop routes for the Clarke Wright algorithm where
 	each route connects a stop to the nearest depot
 	'''
 
-	depot_indices=np.array(depot_indices)
+	depot_indices = np.array(depot_indices)
 
 	if type(adjacency) is np.ndarray:
-		adjacency=[adjacency]
+		adjacency = [adjacency]
 
 	#Pulling destination indices
-	destination_indices=np.array([idx for idx in range(adjacency[0].shape[0])])
+	destination_indices = np.array([idx for idx in range(adjacency[0].shape[0])])
 		# if idx not in depot_indices])
 
 	# Finding closest depots for all destination
-	depot_adjacency=adjacency[0][:,depot_indices]
-	closest_depots=depot_indices[np.argmin(depot_adjacency,axis=1)]
+	depot_adjacency = adjacency[0][:, depot_indices]
+	closest_depots = depot_indices[np.argmin(depot_adjacency, axis = 1)]
 
 	# Creating initial routes
-	routes=[]
-	route_weights=[]
+	routes = []
+	route_weights = []
 
 	for destination_index in destination_indices:
-		depot_index=closest_depots[destination_index]
+		depot_index = closest_depots[destination_index]
 
 		routes.append([
 			depot_index,
@@ -273,95 +407,45 @@ def InitialRoutes(adjacency,depot_indices):
 			])
 
 		route_weight=([
-			adj[depot_index,destination_index]+
-			adj[destination_index,depot_index] \
+			adj[depot_index, destination_index]+
+			adj[destination_index, depot_index] \
 			for adj in adjacency
 		])
 
 		route_weights.append(route_weight)
 
-	return routes,route_weights
+	return routes, route_weights
 
-def RouteTime(graph,route,vertex_time_field='time',edge_time_field='time'):
+def find_routes(routes, node_0, node_1):
 
-	from_indices=route[:-1]
-	to_indices=route[1:]
+	first_route_index = []
+	second_route_index = []
 
-	route_time=0
+	itemget = itemgetter(1)
 
-	for idx in range(len(from_indices)):
-
-		# print(graph._adj[from_indices[idx]][to_indices[idx]])
-
-		route_time+=graph._adj[from_indices[idx]][to_indices[idx]][edge_time_field]
-		route_time+=graph._node[to_indices[idx]][vertex_time_field]
-
-	return route_time
-
-def RouteInformation(graph,route,distance_field='length',time_field='time'):
-
-	from_indices=route[:-1]
-	to_indices=route[1:]
-
-	route_distance=0
-	route_time=0
-
-	for idx in range(len(from_indices)):
-
-		route_distance+=graph._adj[from_indices[idx]][to_indices[idx]][distance_field]
-
-		route_time+=graph._adj[from_indices[idx]][to_indices[idx]][time_field]
-		route_time+=graph._node[to_indices[idx]][time_field]
-
-	return route_distance,route_time
-
-def Assignments(nodes):
-
-	node_to_idx={nodes[idx]:idx for idx in range(len(nodes))}
-	idx_to_node={val:key for key,val in node_to_idx.items()}
-
-	return node_to_idx,idx_to_node
-
-def FindRoutes(routes,node_0,node_1):
-
-	first_route_index=[]
-	second_route_index=[]
-
-	itemget=itemgetter(1)
-
-	result=filter(
-		lambda idx: itemget(routes[idx])==(node_0),
+	result = filter(
+		lambda idx: itemget(routes[idx]) == (node_0),
 		list(range(len(routes)))
 		)
 
 	for res in result:
 
-		first_route_index=res
+		first_route_index = res
 
-	itemget=itemgetter(-2)
+	itemget = itemgetter(-2)
 
-	result=filter(
-		lambda idx: itemget(routes[idx])==(node_1),
+	result = filter(
+		lambda idx: itemget(routes[idx]) == (node_1),
 		list(range(len(routes)))
 		)
 
 	for res in result:
 
-		second_route_index=res
+		second_route_index = res
 
-	
+	return first_route_index, second_route_index
 
-	return first_route_index,second_route_index
-
-def ClarkeWright(
-	adjacency,
-	depot_indices,
-	route_bounds,
-	leg_bounds,
-	stop_weight,
-	max_iterations=100000,
-	):
-	
+def clarke_wright(adjacency, depot_indices, route_bounds, leg_bounds, stop_weight):
 	'''
 	Implements Clarke and Wright savings algorith for solving the VRP with flexible
 	numbers of vehicles per depot. Vehicles have range and capacity limitations. This
@@ -376,6 +460,8 @@ def ClarkeWright(
 
 	# #Dictionary assignemnts for graph indexing
 	# node_to_idx,idx_to_node=Assignments(graph)
+
+	kwargs.setdefault('max_iterations', 100000)
 	
 	#Computing savings matrices for all adjacency matrices and all depots
 	savings=[]
@@ -387,14 +473,14 @@ def ClarkeWright(
 		for depot_index in depot_indices:
 
 			savings_adj.append(
-				ComputeSavingsMatrix(adj,depot_index,leg_bounds[idx])
+				savings_matrix(adj,depot_index,leg_bounds[idx])
 				)
 
 		savings.append(np.array(savings_adj))
 
 	# Initializing routes - initial assumption is that locations will be served by
 	# closest depot. All initial routes are 1-stop (depot -> destination -> depot)
-	routes,route_weights=InitialRoutes(adjacency,depot_indices)
+	routes,route_weights=initial_routes(adjacency,depot_indices)
 
 	# print(route_weights)
 
@@ -421,7 +507,7 @@ def ClarkeWright(
 
 	# Implementing savings
 	success=False
-	for idx in range(max_iterations):
+	for idx in range(kwargs(max_iterations)):
 
 		# Computing remaining savings
 		remaining_savings=savings[0].sum()
@@ -444,7 +530,7 @@ def ClarkeWright(
 		first_route_index=[]
 		second_route_index=[]
 
-		first_route_index,second_route_index=FindRoutes(
+		first_route_index,second_route_index=find_routes(
 			routes,
 			best_savings_link[1],
 			best_savings_link[2],

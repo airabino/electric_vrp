@@ -1,0 +1,8 @@
+{
+	"graph_file":"graph.json",
+	"atlas_file":"atlas.json",
+	"weights":{
+		"length":300e3,
+		"time":28800
+	}
+}

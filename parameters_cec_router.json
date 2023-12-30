@@ -1,0 +1,101 @@
+{
+	"rng_seed":12345,
+	"charger_network_vehicle_assignment":{
+		"Other":["Bolt","Lightning","IONIQ 5"],
+		"ChargePoint Network":["Bolt","Lightning","IONIQ 5"],
+		"eVgo Network":["Bolt","Lightning","IONIQ 5"],
+		"Electrify America":["Bolt","Lightning","IONIQ 5"],
+		"Tesla":["Model 3"],
+		"FLO":["Bolt","Lightning","IONIQ 5"],
+		"Volta":["Bolt","Lightning","IONIQ 5"],
+		"Tesla Destination":["Model 3"]
+	},
+	"depot_nodes":[
+		1000000000,
+		2000000000
+	],
+	"route_weights":["length","time"],
+	"voronoi_weight":"length",
+	"vehicles":{
+		"Bolt":{
+			"node_criteria":{
+				"depot":"lambda n: n['depot'] in [1000000000,2000000000]",
+				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
+				"rng":"lambda n: (n['rng'] >= 0) & (n['rng'] < .34)"
+			},
+			"route_bounds":{
+				"length":[[0,400e3],[0,400e3]],
+				"time":[[0,10800],[0,28800]]
+			},
+			"leg_bounds":{
+				"length":[[20e3,300e3],[20e3,300e3]],
+				"time":[[0,10800],[0,28800]]
+			},
+			"stop_weights":{
+				"length":[0,0],
+				"time":[1800,1800]
+			},
+			"number":[5,-1]
+		},
+		"Lightning":{
+			"node_criteria":{
+				"depot":"lambda n: n['depot'] in [1000000000,2000000000]",
+				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
+				"rng":"lambda n: (n['rng'] >= .34) & (n['rng'] < .67)"
+			},
+			"route_bounds":{
+				"length":[[0,400e3],[0,400e3]],
+				"time":[[0,10800],[0,28800]]
+			},
+			"leg_bounds":{
+				"length":[[20e3,300e3],[20e3,300e3]],
+				"time":[[0,10800],[0,28800]]
+			},
+			"stop_weights":{
+				"length":[0,0],
+				"time":[1800,1800]
+			},
+			"number":[5,-1]
+		},
+		"IONIQ 5":{
+			"node_criteria":{
+				"depot":"lambda n: n['depot'] in [1000000000,2000000000]",
+				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
+				"rng":"lambda n: (n['rng'] >= .67) & (n['rng'] <= 1.)"
+			},
+			"route_bounds":{
+				"length":[[0,350e3],[0,350e3]],
+				"time":[[0,10800],[0,28800]]
+			},
+			"leg_bounds":{
+				"length":[[20e3,265e3],[20e3,265e3]],
+				"time":[[0,10800],[0,28800]]
+			},
+			"stop_weights":{
+				"length":[0,0],
+				"time":[1800,1800]
+			},
+			"number":[5,-1]
+		},
+		"Model 3":{
+			"node_criteria":{
+				"depot":"lambda n: n['depot'] in [1000000000,2000000000]",
+				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Tesla', 'Tesla Destination']",
+				"rng":"lambda n: (n['rng'] >= 0) & (n['rng'] <= 1.)"
+			},
+			"route_bounds":{
+				"length":[[0,500e3],[0,500e3]],
+				"time":[[0,10800],[0,28800]]
+			},
+			"leg_bounds":{
+				"length":[[20e3,375e3],[20e3,375e3]],
+				"time":[[0,10800],[0,28800]]
+			},
+			"stop_weights":{
+				"length":[0,0],
+				"time":[1800,1800]
+			},
+			"number":[5,-1]
+		}
+	}
+}

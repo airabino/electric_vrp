@@ -221,6 +221,10 @@ def reformat_graph(graph, node_attributes = {}, link_attributes = {}, **kwargs):
 
 		for field, fun in node_attributes.items():
 
+			if type(fun) is str:
+				
+				fun = eval(fun)
+
 			node[field] = fun(graph._node[source])
 
 		nodes.append(node)
@@ -240,6 +244,10 @@ def reformat_graph(graph, node_attributes = {}, link_attributes = {}, **kwargs):
 				}
 
 			for field, fun in link_attributes.items():
+
+				if type(fun) is str:
+				
+					fun = eval(fun)
 
 				link[field] = fun(graph._adj[source][target])
 
@@ -300,6 +308,10 @@ def nlg_from_dataframe(dataframe, node_attributes = {}):
 			}
 
 		for field, fun in node_attributes.items():
+
+			if type(fun) is str:
+
+				fun = eval(fun)
 
 			node[field] = fun(source)
 

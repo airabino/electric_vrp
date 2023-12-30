@@ -10,6 +10,7 @@ want to know path 'time', this edited code allows for this to be done efficientl
 '''
 from heapq import heappop, heappush
 from itertools import count
+from sys import float_info
 
 def dijkstra(graph, sources, targets = [], weights = {},return_paths = False):
     """Uses Dijkstra's algorithm to find shortest weighted paths
@@ -62,6 +63,10 @@ def dijkstra(graph, sources, targets = [], weights = {},return_paths = False):
 
     n_weights=len(weights)
 
+    for weight, limit in weights.items():
+        if limit <= 0:
+            weights[weight] = float_info.max
+
     graph_succ = graph._adj
     # For speed-up (and works for both directed and undirected graphs)
 
@@ -100,6 +105,7 @@ def dijkstra(graph, sources, targets = [], weights = {},return_paths = False):
         if v in remaining_targets:
 
             remaining_targets.remove(v)
+
 
         if len(remaining_targets) == 0:
 
