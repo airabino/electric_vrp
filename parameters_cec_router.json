@@ -20,8 +20,8 @@
 		"Bolt":{
 			"node_criteria":{
 				"depot":"lambda n: n['depot'] in [1000000000,2000000000]",
-				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
-				"rng":"lambda n: (n['rng'] >= 0) & (n['rng'] < .34)"
+				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
+				"rng":"lambda n: (n['rng'] >= 0) & (n['rng'] < .34) | (n['ev_network_clean'] == 'Depot')"
 			},
 			"route_bounds":{
 				"length":[[0,400e3],[0,400e3]],
@@ -40,8 +40,8 @@
 		"Lightning":{
 			"node_criteria":{
 				"depot":"lambda n: n['depot'] in [1000000000,2000000000]",
-				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
-				"rng":"lambda n: (n['rng'] >= .34) & (n['rng'] < .67)"
+				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
+				"rng":"lambda n: (n['rng'] >= .34) & (n['rng'] < .67) | (n['ev_network_clean'] == 'Depot')"
 			},
 			"route_bounds":{
 				"length":[[0,400e3],[0,400e3]],
@@ -60,8 +60,8 @@
 		"IONIQ 5":{
 			"node_criteria":{
 				"depot":"lambda n: n['depot'] in [1000000000,2000000000]",
-				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
-				"rng":"lambda n: (n['rng'] >= .67) & (n['rng'] <= 1.)"
+				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
+				"rng":"lambda n: ((n['rng'] >= .67) & (n['rng'] <= 1.)) | (n['ev_network_clean'] == 'Depot')"
 			},
 			"route_bounds":{
 				"length":[[0,350e3],[0,350e3]],
@@ -80,8 +80,8 @@
 		"Model 3":{
 			"node_criteria":{
 				"depot":"lambda n: n['depot'] in [1000000000,2000000000]",
-				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Tesla', 'Tesla Destination']",
-				"rng":"lambda n: (n['rng'] >= 0) & (n['rng'] <= 1.)"
+				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Tesla', 'Tesla Destination']",
+				"rng":"lambda n: (n['rng'] >= 0) & (n['rng'] <= 1.) | (n['ev_network_clean'] == 'Depot')"
 			},
 			"route_bounds":{
 				"length":[[0,500e3],[0,500e3]],

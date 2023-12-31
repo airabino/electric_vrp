@@ -10,8 +10,8 @@ from itertools import product as iter_prod
 
 from .utilities import ProgressBar
 from .graph import subgraph
-
-
+from .clarke_wright  import *
+from .simulated_annealing import *
 
 #CEC Specific functions
 
@@ -233,6 +233,10 @@ def assign_vehicle(graph, vehicles, field = 'vehicle'):
 	Assigns vehicles based on vehicle node_criteria functions
 	'''
 
+	for node in graph.nodes:
+
+		graph._node[node][field] = []
+
 	for vehicle, vehicle_information in vehicles.items():
 
 		for key, fun in vehicle_information['node_criteria'].items():
@@ -259,13 +263,7 @@ def assign_vehicle(graph, vehicles, field = 'vehicle'):
 
 			if meets_criteria:
 
-				graph._node[node][field] = vehicle
-
-	for node in graph.nodes:
-
-		if field not in graph._node[node].keys():
-
-			graph._node[node][field] = ''
+				graph._node[node][field].append(vehicle)
 
 	return graph
 
@@ -285,9 +283,23 @@ def produce_subgraphs(graph, categories):
 
 			include = True
 
-			for idx,field in enumerate(categories.keys()):
+			for idx, field in enumerate(categories.keys()):
 
-				include *= graph._node[node][field] == combination[idx]
+				val = graph._node[node][field]
+
+				if hasattr(val, '__iter__'):
+
+					if len(val) == 0:
+
+						include = False
+
+					else:
+
+						include *= combination[idx] in graph._node[node][field]
+
+				else:
+
+					include *= graph._node[node][field] == combination[idx]
 
 			if include:
 
@@ -311,11 +323,11 @@ def adjacency_matrices(graph, nodelist = None, weights = []):
 	'''
 	Produces list of adjacency matrices for each weight in weights
 	'''
-	adjacency = {}
+	adjacency = []
 
 	for weight in weights:
 
-		adjacency[weight] = nx.to_numpy_array(graph, nodelist = nodelist, weight = weight)
+		adjacency.append(nx.to_numpy_array(graph, nodelist = nodelist, weight = weight))
 
 	return adjacency
 
@@ -333,414 +345,31 @@ def produce_assignments(subgraphs):
 
 	return subgraph_assignments
 
+def produce_bounds(subgraphs, vehicles, weights):
+
+	route_bounds = {}
+	leg_bounds = {}
+	stop_weights = {}
+
+	for key, value in subgraphs.items():
+
+		vehicle, _ = key
+
+		route_bounds[key] = []
+		leg_bounds[key] = []
+		stop_weights[key] = []
+
+		for weight in weights:
+
+			route_bounds[key].append(vehicles[vehicle]["route_bounds"][weight])
+			leg_bounds[key].append(vehicles[vehicle]["leg_bounds"][weight])
+			stop_weights[key].append(vehicles[vehicle]["stop_weights"][weight])
+
+	return route_bounds, leg_bounds, stop_weights
+
 def assignments(nodes):
 
 	node_to_idx = {nodes[idx]: idx for idx in range(len(nodes))}
 	idx_to_node = {val: key for key, val in node_to_idx.items()}
 
 	return node_to_idx, idx_to_node
-
-def savings_matrix(adjacency, depot_index = 0, bounds = (0, np.inf)):
-	'''
-	Computing the savings matrix from an adjacency matrix.
-
-	Savings is the difference between:
-
-	depot -> destination 1 -> depot -> destination 2 -> depot
-
-	and
-
-	depot -> destination 1 -> destination 2 -> depot
-
-
-	Values for links with negative savings or invalid lnks will be set to zero
-
-	Requires the definition of a depot location
-	'''
-
-	cost_from, cost_to = np.meshgrid(adjacency[:, depot_index], adjacency[depot_index])
-
-	savings = cost_from + cost_to - adjacency
-
-	# Negative savings should nobe be considered
-	savings[savings < 0] = 0
-
-	# No self-savings
-	savings[np.diag_indices(adjacency.shape[0])] = 0
-
-	#No savings from infeasible edges
-	savings[adjacency < bounds[0]] = 0
-	savings[adjacency > bounds[1]] = 0
-
-	return savings
-
-def initial_routes(adjacency, depot_indices):
-	'''
-	Prodces list of initial 1-stop routes for the Clarke Wright algorithm where
-	each route connects a stop to the nearest depot
-	'''
-
-	depot_indices = np.array(depot_indices)
-
-	if type(adjacency) is np.ndarray:
-		adjacency = [adjacency]
-
-	#Pulling destination indices
-	destination_indices = np.array([idx for idx in range(adjacency[0].shape[0])])
-		# if idx not in depot_indices])
-
-	# Finding closest depots for all destination
-	depot_adjacency = adjacency[0][:, depot_indices]
-	closest_depots = depot_indices[np.argmin(depot_adjacency, axis = 1)]
-
-	# Creating initial routes
-	routes = []
-	route_weights = []
-
-	for destination_index in destination_indices:
-		depot_index = closest_depots[destination_index]
-
-		routes.append([
-			depot_index,
-			destination_index,
-			depot_index,
-			])
-
-		route_weight=([
-			adj[depot_index, destination_index]+
-			adj[destination_index, depot_index] \
-			for adj in adjacency
-		])
-
-		route_weights.append(route_weight)
-
-	return routes, route_weights
-
-def find_routes(routes, node_0, node_1):
-
-	first_route_index = []
-	second_route_index = []
-
-	itemget = itemgetter(1)
-
-	result = filter(
-		lambda idx: itemget(routes[idx]) == (node_0),
-		list(range(len(routes)))
-		)
-
-	for res in result:
-
-		first_route_index = res
-
-	itemget = itemgetter(-2)
-
-	result = filter(
-		lambda idx: itemget(routes[idx]) == (node_1),
-		list(range(len(routes)))
-		)
-
-	for res in result:
-
-		second_route_index = res
-
-	return first_route_index, second_route_index
-
-def clarke_wright(adjacency, depot_indices, route_bounds, leg_bounds, stop_weight):
-	'''
-	Implements Clarke and Wright savings algorith for solving the VRP with flexible
-	numbers of vehicles per depot. Vehicles have range and capacity limitations. This
-	implementation allows for multiple depots.
-
-	The Clarke and Wright method attempts to implment all savings available in a savings
-	matrix by iteratively merging routes. Routes are initialized as 1-stop routes between
-	each destination and its closest depot. During iteration, savings are implemented
-	by merging the routes which allow for the capture of the greatest savings link
-	available.
-	'''
-
-	# #Dictionary assignemnts for graph indexing
-	# node_to_idx,idx_to_node=Assignments(graph)
-
-	kwargs.setdefault('max_iterations', 100000)
-	
-	#Computing savings matrices for all adjacency matrices and all depots
-	savings=[]
-
-	for idx,adj in enumerate(adjacency):
-
-		savings_adj=[]
-
-		for depot_index in depot_indices:
-
-			savings_adj.append(
-				savings_matrix(adj,depot_index,leg_bounds[idx])
-				)
-
-		savings.append(np.array(savings_adj))
-
-	# Initializing routes - initial assumption is that locations will be served by
-	# closest depot. All initial routes are 1-stop (depot -> destination -> depot)
-	routes,route_weights=initial_routes(adjacency,depot_indices)
-
-	# print(route_weights)
-
-	routes=np.array(routes)
-	route_weights=np.array(route_weights)
-
-	# print(routes.shape,route_weights.shape)
-
-	combinable=(route_weights[:,0]/2<=leg_bounds[0][1])&(route_weights[:,0]>0)
-	non_combinable=(route_weights[:,0]/2>=leg_bounds[0][1])|(route_weights[:,0]<=0)
-	# print(combinable,non_combinable)
-
-	savings[0][:,non_combinable,:]=0
-	savings[0][:,:,non_combinable]=0
-
-	# print(non_combinable.shape,savings[0].shape)
-
-	routes=routes[combinable].tolist()
-	route_weights=route_weights[combinable].tolist()
-
-	# print(len(routes),len(route_weights))
-
-	k=0
-
-	# Implementing savings
-	success=False
-	for idx in range(kwargs(max_iterations)):
-
-		# Computing remaining savings
-		remaining_savings=savings[0].sum()
-
-		# If all savings incorporated then exit
-		if remaining_savings==0:
-			success=True
-			break
-
-		# Finding link with highest remaining savings
-		best_savings_link=np.unravel_index(np.argmax(savings[0]),savings[0].shape)
-
-		t0=time.time()
-
-		# Finding routes to merge - the routes can only be merged if there are
-		# routes which start with and end with the to and from index respectively.
-		# Routes with different depots can be merged if the savings call for it but
-		# all routes have to begin and terminate at the same depot
-
-		first_route_index=[]
-		second_route_index=[]
-
-		first_route_index,second_route_index=find_routes(
-			routes,
-			best_savings_link[1],
-			best_savings_link[2],
-			)
-		# print(best_savings_link)
-
-		k+=time.time()-t0
-
-		# print([idx,primary_savings.sum(),k/(idx+1)],end='\r')
-
-		# If a valid merge combination is found create a tentative route and evaluate
-		if first_route_index and second_route_index:
-
-			if routes[first_route_index][0]==routes[second_route_index][-1]:
-
-				# Combining non-depot elements of merged routes
-				tentative_route_core=(
-					routes[first_route_index][1:-1]+routes[second_route_index][1:-1])
-
-				# Creating tentative routes based out of each depot
-				tentative_routes=(
-					[[depot]+tentative_route_core+[depot]\
-					 for depot in depot_indices])
-
-				# tentative_routes=(
-				# 	[routes[first_route_index][:-1]+routes[second_route_index][1:]]
-				# 	)
-
-				# Finding the best of the tentative routes
-				tentative_route_weights=[]
-
-				for tentative_route in enumerate(tentative_routes):
-
-					tentative_route_weight=[]
-
-					for idx_savings,savings_matrix in enumerate(savings):
-
-						tentative_route_weight.append(
-							route_weights[first_route_index][idx_savings]+
-							route_weights[second_route_index][idx_savings]-
-							savings_matrix[*best_savings_link]
-							)
-					
-					tentative_route_weights.append(
-						tentative_route_weight
-						)
-
-				selected_route_index=np.argmin([rw[0] for rw in tentative_route_weights])
-
-				selected_tentative_route=tentative_routes[selected_route_index]
-
-				selected_tentative_route_weight=(
-					tentative_route_weights[selected_route_index])
-
-
-				# Checking if the merged route represents savings over the individual routes
-				improvement=selected_tentative_route_weight[0]<=(
-					route_weights[first_route_index][0]+
-					route_weights[second_route_index][0]
-					)
-
-				selected_tentative_route_offset=[]
-
-				for idx_offset,offset in enumerate(stop_weight):
-
-					selected_tentative_route_offset.append(
-						sum([offset for idx in range(1,len(selected_tentative_route)-1)])
-						)
-
-				# Checking if the merged route is feasible
-				checks=[]
-
-				for idx_bounds,bounds in enumerate(route_bounds):
-
-					checks.append(
-						(
-							selected_tentative_route_weight[idx_bounds]+
-							selected_tentative_route_offset[idx_bounds]
-						)>=bounds[0]
-						)
-
-					checks.append(
-						(
-							selected_tentative_route_weight[idx_bounds]+
-							selected_tentative_route_offset[idx_bounds]
-						)<=bounds[1]
-						)
-
-
-				feasible=np.all(checks)
-
-				# If the merged route is an improvement and feasible it is integrated
-				if improvement and feasible:
-
-					# Adding the merged route
-					routes[first_route_index]=selected_tentative_route
-					route_weights[first_route_index]=selected_tentative_route_weight
-
-					# Removing the individual routes
-					routes.remove(routes[second_route_index])
-					route_weights.remove(route_weights[second_route_index])
-
-		# Removing the savings
-		savings[0][:,best_savings_link[1],best_savings_link[2]]=0
-		savings[0][:,best_savings_link[2],best_savings_link[1]]=0
-
-	return routes,success
-
-def ValidRoute(graph,route,min_weight,weight='length'):
-
-	from_indices=route[:-1]
-	to_indices=route[1:]
-
-	valid=True
-
-	for idx in range(len(from_indices)):
-
-		distance=graph[from_indices[idx]][to_indices[idx]][weight]
-
-		if distance<min_weight:
-
-			valid=False
-			break
-
-	return valid
-
-def RouteDistance(graph,route,weight='length'):
-
-	from_indices=route[:-1]
-	to_indices=route[1:]
-
-	route_distance=0
-
-	for idx in range(len(from_indices)):
-
-		route_distance+=graph._adj[from_indices[idx]][to_indices[idx]][weight]
-
-	return route_distance
-
-def AcceptanceProbability(e,e_prime,temperature):
-
-	return min([1,np.exp(-(e_prime-e)/temperature)])
-
-def Acceptance(e,e_prime,temperature):
-
-	return AcceptanceProbability(e,e_prime,temperature)>np.random.rand()
-
-def RouteOptimization(graph,route,steps=100,weight='length',
-	initial_temperature=1,min_weight=0):
-
-	# At lease 2 destinations need to be present for annealing
-	if len(route)<4:
-
-		return route
-
-	else:
-
-		# Initializing temperature
-		temperature=initial_temperature
-
-		# Getting initial route distance
-		route_distance=RouteDistance(graph,route,weight=weight)
-
-		# Saving initial route and distance
-		initial_route=route.copy()
-		initial_route_distance=route_distance
-
-		# print(route_distance)
-
-		# Looping while there is still temperature
-		k=0
-		while temperature>0:
-
-			# Randomly selecting swap vertices
-			swap_indices=np.random.choice(list(range(1,len(route)-1)),size=2,replace=False)
-
-			# Creating tentative route by swapping vertex order
-			tentative_route=route.copy()
-			tentative_route[swap_indices[0]]=route[swap_indices[1]]
-			tentative_route[swap_indices[1]]=route[swap_indices[0]]
-
-			# Checking if tentative route is valid
-			valid_route=ValidRoute(graph,tentative_route,min_weight,
-				weight=weight)
-
-			# Proceeding only for valid routes
-			if valid_route:
-
-				# Computing tentative route distance
-				tentative_route_distance=RouteDistance(graph,tentative_route,
-					weight=weight)
-
-				# Determining acceptance of tentative route
-				accept=Acceptance(route_distance,tentative_route_distance,temperature)
-
-				# print(route_distance,tentative_route_distance,accept,temperature)
-
-				# If accepted, replace route with tentative route
-				if accept:
-					
-					route=tentative_route
-					route_distance=tentative_route_distance
-
-			# Reducing temperature
-			temperature-=initial_temperature/steps
-
-		if route_distance<=initial_route_distance:
-
-			return route
-
-		else:
-
-			return initial_route
