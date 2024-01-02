@@ -1,84 +1,77 @@
 Description:
 
-Module for solving multi-depot Vehicle Routing Problem (VRP) built for UC Davis CEC
-data collection project but generally applicable.
+Module for solving multi-depot Vehicle Routing Problem (VRP) built for UC Davis CEC data collection project but generally applicable.
 
-This module uses a road map based off of arcgis opendata roads standard using
-North American roads. Download at:
+This module provides a road map based off of arcgis opendata roads standard using North American roads. Download at:
 
 https://opendata.arcgis.com/api/v3/datasets/169745624b194c1d913b9d9fb41a3f76_0/downloads/data?format=shp&spatialRefId=3857&where=1%3D1
 
-Because the above file is very large and CEC data collection takes place in California the
-map provided in this repository only contains California - however code will run on any
-road map of the above format.
+Because the above file is very large and CEC data collection takes place in California the map provided in this repository only contains California.
 
-Function:
+The module stores graphs as JSON using the Node-Link Graph (NLG) format. The graph on which the VRP will be solved is called the graph. If needed a second graph, called atlas, can be used to compute adjacecny for graph (for example graph containing nodes at coordinates and atlas being a road map). Several parameters files are also JSONs.
 
-Serves to find optimal VRP solution for a set of vehicles to a set of destinations from a set
-of depots. In general all locations (destinations and depots) will be defined in a .json
-containing, at minimum, coordinates, and all other information will be defined in a separate
-.json. CEC destinations and depots are given in .csv files and code is included to create a
-.json file from these. Source files contained in src. Package requirements in src/requirements.txt. Tested on Python 3.11.*
+Usage:
 
-Starting point can be a (or multiple) vertices .csv or .json  and a paramerters .json -
-refer to example_vertices.csv, example_vertices.json, and example_parameters.json.
+Ultimate output is a .json file containing information for optimal routes. There are several paths which can be followed to get outputs.
 
-Overall output is a .json file containing information for optimal routes.
+1. Graph NLG JSON + parameters JSON -> routes JSON
+
+Top Level Functions: compute_routes.py
+
+2. (Nodes CSV + parameters JSON) + Atlas NLG JSON -> Graph NLG JSON + parameters JSON -> routes JSON
+
+Top Level Functions: graph_from_csv.py, add_adjacency.py, compute_routes.py
+
+3. (Nodes CSV + parameters JSON) + (Atlas Shapefile + parameters JSON) -> Graph NLG JSON + parameters JSON -> routes JSON
+
+Top Level Functions: graph_from_csv.py, graph_from_shapefile.py, add_adjacency.py, compute_routes.py
+
+Example input and parameters files are in /CEC/
 
 Top level scripts are:
 
-1. vertices_from_csv.py:
+1. graph_from_csv.py:
 
-Creates an "empty" - (meaning that adjecency has not been calculated) .json for all vertices
-containing the fields defined either as vertex_fields in the parameters .json or using the
--f command line option. Should run quickly.
+Creates an "empty" - (meaning that adjecency has not been calculated) NLG JSON from CSV(s)
 
 Example(s):
 
 All vertices:
 
-python graph_from_csv.py -i 'CEC/ACL2_Weighted_Sample.csv' 'CEC/DCL2_Weighted_Sample.csv' 'CEC/Depots.csv' -o graph.json -p parameters_cec_csv.json -v
+python graph_from_csv.py -i 'CEC/ACL2_Weighted_Sample.csv' 'CEC/DCL2_Weighted_Sample.csv' 'CEC/Depots.csv' -o graph.json -p CEC/parameters_cec_csv.json -v
 
 Selection by county:
 
-python graph_from_csv.py -i 'CEC/ACL2_Weighted_Sample.csv' 'CEC/DCL2_Weighted_Sample.csv' 'CEC/Depots.csv' -o graph.json -p parameters_cec_csv.json -v -k County Sacremento 'San Joaquin' Amador Yolo Solano 'El Dorado' 'Contra Costa' Sutter Pacer
+python graph_from_csv.py -i 'CEC/ACL2_Weighted_Sample.csv' 'CEC/DCL2_Weighted_Sample.csv' 'CEC/Depots.csv' -o graph.json -p CEC/parameters_cec_csv.json -v -k County Sacremento 'San Joaquin' Amador Yolo Solano 'El Dorado' 'Contra Costa' Sutter Pacer
 
 Call with -h/--help for options.
 
-2. add_vertex_fields.py:
+2. graph_from_shapefile.py:
 
-Adds fields from csv to existing vertices .json. Should run quickly.
+Creates a NLG JSON from a shapefile
 
 Example(s):
 
-python add_vertex_fields.py -i 'UCDavis_L2_Weighted_Sample.csv' 'UCDavis_DCFC_Weighted_Sample.csv' 'Depots.csv' -j vertices.json -f 'EV Network Clean' -v
+python graph_from_shapefile.py -p  CEC/parameters_cec_shp.json -v
 
 Call with -h/--help for options.
 
-3. compute_adjacency.py:
+3. add_adjacency.py:
 
-Computes edge values for all O/D combinations in vertices .json. Run-time scales
-exponentially with number of vertices.
+Computes edge values for all O/D combinations in NLG JSON subject to limits. Run-time scales exponentially with number of vertices.
 
 Example(s):
 
-Compute all edges:
-
-python compute_adjacency.py -i vertices.json -r Data/RoadMap/roadmap.pkl -v -a
-
-Compute non-added edges:
-
-python compute_adjacency.py -i vertices.json -r Data/RoadMap/roadmap.pkl -v
+python add_adjacency.py -p CEC/parameters_cec_adj.json -v
 
 Call with -h/--help for options.
 
 4. compute_routes.py:
 
-Computes optimal routes for vertices and parameters and produces routes .json.
-Run-time scales exponentially with number of vertices.
+Solves VRP and produces optimal routes
 
 Example(s):
 
-python compute_routes.py -i vertices.json -o routes.json -p parameters.json -v
+python compute_routes.py -p CEC/parameters_cec_router -v
 
 Call with -h/--help for options.

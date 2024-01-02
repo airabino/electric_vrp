@@ -1,3 +1,7 @@
+'''
+Creates routes for vehicles and depots on a graph
+'''
+
 import os
 import sys
 import time
@@ -12,169 +16,6 @@ from .utilities import ProgressBar
 from .graph import subgraph
 from .clarke_wright  import *
 from .simulated_annealing import *
-
-#CEC Specific functions
-
-def Assign(items,buckets,seed=None):
-	'''
-	distribute items randomly among sets such that all sets are
-	close to evenly represented
-	'''
-
-	rng=np.random.default_rng(seed)
-
-	assignment={}
-
-	item_bins=[[] for idx in range(len(buckets))]
-
-	for item in items:
-
-		bin_index=rng.integers(0,len(item_bins))
-
-		item_bins[bin_index].append(item)
-
-	for idx,bucket in enumerate(buckets):
-
-		assignment[bucket]=np.array(item_bins[idx])
-
-	return assignment
-
-def ProcessInputs(graph,parameters):
-
-	vertex_group_field=parameters['vertex_group_field']
-	charger_networks=parameters['vertex_group_vehicle_assignment'].keys()
-
-	vehicle_nodes={}
-
-	for network,vehicles in parameters['vertex_group_vehicle_assignment'].items():
-		
-		network_nodes=np.array(
-			[key for key,val in graph._node.items() if \
-			 val[vertex_group_field]==network])
-
-		assignment=Assign(network_nodes,vehicles,seed=parameters['rng_seed'])
-
-		for vehicle in vehicles:
-
-			if vehicle in vehicle_nodes.keys():
-
-				vehicle_nodes[vehicle]=np.concatenate(
-					(vehicle_nodes[vehicle],assignment[vehicle]))
-
-			else:
-
-				vehicle_nodes[vehicle]=np.concatenate(
-					(parameters['depot_vertices'],assignment[vehicle]))
-
-	center_nodes=set(parameters['depot_vertices'])
-
-	depot_nodes=VoronoiCells(graph,center_nodes,weight='length')
-
-	for vehicle in parameters['vehicles']:
-
-		assignment={}
-
-		for depot in parameters['depot_vertices']:
-
-			assignment[depot]=np.intersect1d(vehicle_nodes[vehicle],depot_nodes[depot])
-			
-		vehicle_nodes[vehicle]=assignment
-	
-	vehicle_adjacency={}
-
-	for vehicle in parameters['vehicles']:
-
-		vehicle_adjacency[vehicle]={}
-
-		for depot in parameters['depot_vertices']:
-
-			vehicle_adjacency[vehicle][depot]={}
-			
-			vehicle_adjacency[vehicle][depot]['matrices']=ProduceAdjacency(
-				graph,nodelist=vehicle_nodes[vehicle][depot],weights=['length','time'])
-		
-			node_to_idx,idx_to_node=Assignments(vehicle_nodes[vehicle][depot])
-			vehicle_adjacency[vehicle][depot]['node_to_idx']=node_to_idx
-			vehicle_adjacency[vehicle][depot]['idx_to_node']=idx_to_node
-
-	return vehicle_adjacency,vehicle_nodes
-
-def ProduceRoutesVehicleDepot(graph,vehicle,depot,parameters,adjacency):
-
-	final_routes=[]
-	adj=deepcopy(adjacency)
-
-	constraint_sets=parameters['vehicles'][vehicle]
-
-	for idx_c in range(len(constraint_sets)):
-
-		constraints=constraint_sets[idx_c]
-	
-		depot_indices=[adj['node_to_idx'][depot]] 
-
-		route_bounds=(
-			(constraints['min_route_distance'],constraints['max_route_distance']),
-			(constraints['min_route_time'],constraints['max_route_time']),
-		)
-
-		leg_bounds=(
-			(constraints['min_leg_distance'],constraints['max_leg_distance']),
-			(constraints['min_leg_time'],constraints['max_leg_time']),
-		)
-
-		stop_weight=(
-			constraints['stop_added_distance'],
-			constraints['stop_added_time'],
-		)
-
-		routes,success=ClarkeWright(
-			adj['matrices'],
-			depot_indices,
-			route_bounds=route_bounds,
-			leg_bounds=leg_bounds,
-			stop_weight=stop_weight,
-			max_iterations=100000,
-		)
-
-		routes_nodes=(
-			[[adj['idx_to_node'][stop] for stop in route] \
-			for route in routes])
-
-		routes_nodes_opt=([
-			RouteOptimization(graph,route) for route in routes_nodes])
-
-		len_routes=np.array([len(route) for route in routes_nodes_opt])
-
-		num=-constraints['number']
-		indices_keep=np.argsort(len_routes)[num:]
-		routes_keep=[routes_nodes_opt[idx_r] for idx_r in indices_keep]
-
-		final_routes.extend(routes_keep)
-
-		for idx in indices_keep:
-
-			visited=routes_nodes_opt[idx][1:-1]
-			visited_indices=[adj['node_to_idx'][v] for v in visited]
-
-			for idx_v in visited_indices:
-
-				for idx_m in range(len(adj['matrices'])):
-
-					adj['matrices'][idx_m][idx_v,:]=0
-					adj['matrices'][idx_m][:,idx_v]=0
-
-	visited=[]
-
-	for route in final_routes:
-		visited.extend(route[1:-1])
-
-	not_visited=np.setdiff1d(list(adjacency['node_to_idx'].keys()),visited+[depot])
-	additional_routes=[[depot,nv,depot] for nv in not_visited]
-	final_routes.extend(additional_routes)
-
-	return final_routes
-
-#General functions
 
 def voronoi_cells(graph, center_nodes, nodes = None, weight = None, **kwargs):
 	'''
@@ -385,52 +226,21 @@ def produce_bounds(subgraphs, vehicles, weights, **kwargs):
 
 	return route_bounds, leg_bounds, stop_weights
 
-def depot_router(adjacency, depot, route_bounds, leg_bounds, stop_weights, **kwargs):
+def produce_information(subgraphs, vehicles, **kwargs):
 
-	kwargs.setdefault('steps_routes', 1000)
-	kwargs.setdefault('steps_route', 100)
+	information = {}
 
-	routes, success = clarke_wright(
-		adjacency,
-		depot,
-		route_bounds,
-		leg_bounds,
-		stop_weights,
-		)
-	
-	try:
+	for key, value in subgraphs.items():
 
-		routes = anneal_routes(
-			adjacency,
-			routes,
-			route_bounds,
-			leg_bounds,
-			stop_weights,
-			steps = kwargs['steps_routes'],
-			)
+		vehicle, depot = key
 
-	except:
+		information[key] = {}
 
-		pass
+		information[key]['vehicle'] = vehicle
+		information[key]['depot'] = depot
+		information[key]['fleet_size'] = vehicles[vehicle]['fleet_size']
 
-	try:
-	
-		for route in routes:
-
-			route = anneal_route(
-				adjacency,
-				opt_route,
-				route_bounds,
-				leg_bounds,
-				stop_weights,
-				steps = kwargs['steps_route'],
-				)
-	
-	except:
-
-		pass
-
-	return routes, success
+	return information
 
 def produce_routing_inputs(graph, parameters, **kwargs):
 
@@ -470,6 +280,9 @@ def produce_routing_inputs(graph, parameters, **kwargs):
 	route_bounds, leg_bounds, stop_weights = produce_bounds(
 		subgraphs, vehicles, route_weights, **kwargs)
 
+	# Producing case information
+	information = produce_information(subgraphs, vehicles, **kwargs)
+
 	# Combining
 	cases = {}
 
@@ -483,5 +296,103 @@ def produce_routing_inputs(graph, parameters, **kwargs):
 		cases[key]['route_bounds'] = route_bounds[key]
 		cases[key]['leg_bounds'] = leg_bounds[key]
 		cases[key]['stop_weights'] = stop_weights[key]
+		cases[key]['information'] = information[key]
 	
 	return cases
+
+def router(case, **kwargs):
+
+	kwargs.setdefault('steps_routes', 1000)
+	kwargs.setdefault('steps_route', 100)
+
+	depot_index = case['assignments']['node_to_idx'][case['information']['depot']]
+
+	routes, success = clarke_wright(
+		case['adjacency'],
+		depot_index,
+		case['route_bounds'],
+		case['leg_bounds'],
+		case['stop_weights'],
+		)
+
+	# Removing depot - depot - depot route
+	try:
+
+		routes.remove([depot_index, depot_index, depot_index])
+
+	except:
+
+		pass
+	
+	# Annealing between routes
+	routes = anneal_routes(
+		case['adjacency'],
+		routes,
+		case['route_bounds'],
+		case['leg_bounds'],
+		case['stop_weights'],
+		steps = kwargs['steps_routes'],
+		)
+	
+	# Annealing within routes
+	for route in routes:
+
+		route = anneal_route(
+			case['adjacency'],
+			route,
+			case['route_bounds'],
+			case['leg_bounds'],
+			case['stop_weights'],
+			steps = kwargs['steps_route'],
+			)
+
+	# Adding routes to unreached destinations
+	reached = []
+	for route in routes:
+		reached.extend(route)
+
+	possible_destinations = list(range(len(case['adjacency'][0])))
+	possible_destinations.remove(depot_index)
+	not_reached = np.array(possible_destinations)[~np.isin(possible_destinations, reached)]
+
+	for destination in not_reached:
+
+		routes.append([depot_index, destination, depot_index])
+
+	# Converting routes from indices to nodes
+	for idx, route in enumerate(routes):
+
+		routes[idx] = [case['assignments']['idx_to_node'][node_idx] for node_idx in route]
+
+	if not np.isinf(case['information']['fleet_size']):
+
+		route_lenghts = [len(route) for route in routes]
+		keep_indices = np.argsort(route_lenghts)[-case['information']['fleet_size']:]
+		routes = [routes[idx] for idx in keep_indices]
+
+	return routes, success
+
+def route_information(graph, raw_routes, fields):
+
+	for key, fun in fields.items():
+
+		if isinstance(fun, str):
+
+			fields[key] = eval(fun)
+
+	routes = []
+
+	for raw_route in raw_routes:
+
+		route = {key: [] for key in fields.keys()}
+		route['nodes'] = raw_route
+
+		for node in raw_route:
+
+			for key, fun in fields.items():
+
+				route[key].append(fun(graph._node[node]))
+
+		routes.append(route)
+
+	return routes

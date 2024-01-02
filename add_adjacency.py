@@ -70,7 +70,7 @@ if __name__ == "__main__":
 	t0 = time.time()
 
 	args = vars(parser.parse_args(sys.argv[1:]))
-	CondPrint(str_color + '\n' + 'Module graph_from_csv' + '\n', args['verbose'])
+	CondPrint(str_color + '\n' + 'Module add_adjacency' + '\n', args['verbose'])
 
 	args['weights']=eval(args['weights'])
 
@@ -94,16 +94,16 @@ if __name__ == "__main__":
 	atlas = src.graph.graph_from_json(args['atlas_file'])
 
 	CondPrint('Computing adjacency\n', args['verbose'])
-	graph = src.adjacency.adjacency(atlas, graph, args['weights'])
+	graph = src.adjacency.adjacency(atlas, graph, args['weights'], end_color = '')
 
 	#Writing to file
 	if args['output_file'] is None:
 
 		args['output_file'] = args['graph_file']
 
-	CondPrint(str_color + 'Writing to file', args['verbose'])
+	CondPrint('Writing to file\n', args['verbose'])
 	src.graph.graph_to_json(graph, args['output_file'])
 
 	CondPrint(
-		'\n' + f'Done: {time.time()-t0:.3f} seconds' +
+		f'\nDone: {time.time()-t0:.3f} seconds' +
 		'\033[0m\n', args['verbose'])
