@@ -104,31 +104,58 @@ def evaluate_route(adjacency, route, route_bounds, leg_bounds, stop_weights):
 
 	n = len(adjacency)
 
-	weights = [0] * n
+	if n < 4:
 
-	validity = [True] * n
+		weights = [0] * n
 
-	for idx_adj in range(n):
+		validity = [True] * n
 
-		from_indices = route[1:-2]
-		to_indices = route[2:-1]
+		for idx_adj in range(n):
 
-		weights[idx_adj] += adjacency[idx_adj][route[0], route[1]]
-		weights[idx_adj] += adjacency[idx_adj][route[-2], route[-1]]
+			from_indices = route[:-1]
+			to_indices = route[1:]
 
-		for idx_leg in range(len(from_indices)):
+			for idx_leg in range(len(from_indices)):
 
-			leg_weight = adjacency[idx_adj][from_indices[idx_leg], to_indices[idx_leg]]
+				leg_weight = adjacency[idx_adj][from_indices[idx_leg], to_indices[idx_leg]]
 
-			weights[idx_adj] += leg_weight + stop_weights[idx_adj]
+				weights[idx_adj] += leg_weight + stop_weights[idx_adj]
 
-			validity[idx_adj] *= leg_weight >= leg_bounds[idx_adj][0]
-			validity[idx_adj] *= leg_weight <= leg_bounds[idx_adj][1]
+				validity[idx_adj] *= leg_weight >= leg_bounds[idx_adj][0]
+				validity[idx_adj] *= leg_weight <= leg_bounds[idx_adj][1]
 
-		validity[idx_adj] *= weights[idx_adj] >= route_bounds[idx_adj][0]
-		validity[idx_adj] *= weights[idx_adj] <= route_bounds[idx_adj][1]
+			validity[idx_adj] *= weights[idx_adj] >= route_bounds[idx_adj][0]
+			validity[idx_adj] *= weights[idx_adj] <= route_bounds[idx_adj][1]
 
-	return weights, validity
+		return weights, validity
+
+	else:
+
+		weights = [0] * n
+
+		validity = [True] * n
+
+		for idx_adj in range(n):
+
+			from_indices = route[1:-2]
+			to_indices = route[2:-1]
+
+			weights[idx_adj] += adjacency[idx_adj][route[0], route[1]]
+			weights[idx_adj] += adjacency[idx_adj][route[-2], route[-1]]
+
+			for idx_leg in range(len(from_indices)):
+
+				leg_weight = adjacency[idx_adj][from_indices[idx_leg], to_indices[idx_leg]]
+
+				weights[idx_adj] += leg_weight + stop_weights[idx_adj]
+
+				validity[idx_adj] *= leg_weight >= leg_bounds[idx_adj][0]
+				validity[idx_adj] *= leg_weight <= leg_bounds[idx_adj][1]
+
+			validity[idx_adj] *= weights[idx_adj] >= route_bounds[idx_adj][0]
+			validity[idx_adj] *= weights[idx_adj] <= route_bounds[idx_adj][1]
+
+		return weights, validity
 
 def clarke_wright(adjacency, depot_index, route_bounds, leg_bounds, stop_weights, **kwargs):
 	'''

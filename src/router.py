@@ -176,7 +176,7 @@ def ProduceRoutesVehicleDepot(graph,vehicle,depot,parameters,adjacency):
 
 #General functions
 
-def voronoi_cells(graph, center_nodes, nodes = None, weight = None):
+def voronoi_cells(graph, center_nodes, nodes = None, weight = None, **kwargs):
 	'''
 	assign nodes to reference nodes by proximity
 	'''
@@ -195,10 +195,14 @@ def voronoi_cells(graph, center_nodes, nodes = None, weight = None):
 
 	return voronoi_cells
 
-def assign_depot(graph, depot_nodes, nodes = None, weight = None, field = 'depot'):
+def assign_depot(graph, depot_nodes, nodes = None, weight = None, **kwargs):
 	'''
-	Assign nodes to depots using weighted Voronoi cells
+	Assign nodes to depots using weighted Voronoi cells 
 	'''
+	kwargs.setdefault('field', 'depot')
+	kwargs.setdefault('overwrite_depots', True)
+
+	field = kwargs['field']
 
 	vc = voronoi_cells(graph, depot_nodes, nodes = nodes, weight = weight)
 
@@ -206,7 +210,9 @@ def assign_depot(graph, depot_nodes, nodes = None, weight = None, field = 'depot
 
 		for node in vc[depot]:
 
-			graph._node[node][field] = depot
+			if kwargs['overwrite_depots'] or (field not in graph._node[node].keys()):
+
+				graph._node[node][field] = depot
 
 	for node in graph.nodes:
 
@@ -216,7 +222,7 @@ def assign_depot(graph, depot_nodes, nodes = None, weight = None, field = 'depot
 
 	return graph
 
-def assign_rng(graph, seed = None, field = 'rng'):
+def assign_rng(graph, seed = None, field = 'rng', **kwargs):
 	'''
 	Assign a random number to each node
 	'''
@@ -228,7 +234,7 @@ def assign_rng(graph, seed = None, field = 'rng'):
 
 	return graph
 
-def assign_vehicle(graph, vehicles, field = 'vehicle'):
+def assign_vehicle(graph, vehicles, field = 'vehicle', **kwargs):
 	'''
 	Assigns vehicles based on vehicle node_criteria functions
 	'''
@@ -267,7 +273,7 @@ def assign_vehicle(graph, vehicles, field = 'vehicle'):
 
 	return graph
 
-def produce_subgraphs(graph, categories):
+def produce_subgraphs(graph, categories, **kwargs):
 
 	subgraphs = {}
 
@@ -309,7 +315,7 @@ def produce_subgraphs(graph, categories):
 
 	return subgraphs
 
-def produce_adjacency(subgraphs, weights = []):
+def produce_adjacency(subgraphs, weights = [], **kwargs):
 
 	adjacency = {}
 
@@ -319,7 +325,7 @@ def produce_adjacency(subgraphs, weights = []):
 
 	return adjacency
 
-def adjacency_matrices(graph, nodelist = None, weights = []):
+def adjacency_matrices(graph, nodelist = None, weights = [], **kwargs):
 	'''
 	Produces list of adjacency matrices for each weight in weights
 	'''
@@ -327,11 +333,16 @@ def adjacency_matrices(graph, nodelist = None, weights = []):
 
 	for weight in weights:
 
-		adjacency.append(nx.to_numpy_array(graph, nodelist = nodelist, weight = weight))
+		adjacency.append(nx.to_numpy_array(
+			graph,
+			nodelist = nodelist,
+			weight = weight,
+			nonedge = np.inf,
+			))
 
 	return adjacency
 
-def produce_assignments(subgraphs):
+def produce_assignments(subgraphs, **kwargs):
 
 	subgraph_assignments = {}
 
@@ -345,7 +356,14 @@ def produce_assignments(subgraphs):
 
 	return subgraph_assignments
 
-def produce_bounds(subgraphs, vehicles, weights):
+def assignments(nodes, **kwargs):
+
+	node_to_idx = {nodes[idx]: idx for idx in range(len(nodes))}
+	idx_to_node = {val: key for key, val in node_to_idx.items()}
+
+	return node_to_idx, idx_to_node
+
+def produce_bounds(subgraphs, vehicles, weights, **kwargs):
 
 	route_bounds = {}
 	leg_bounds = {}
@@ -367,9 +385,103 @@ def produce_bounds(subgraphs, vehicles, weights):
 
 	return route_bounds, leg_bounds, stop_weights
 
-def assignments(nodes):
+def depot_router(adjacency, depot, route_bounds, leg_bounds, stop_weights, **kwargs):
 
-	node_to_idx = {nodes[idx]: idx for idx in range(len(nodes))}
-	idx_to_node = {val: key for key, val in node_to_idx.items()}
+	kwargs.setdefault('steps_routes', 1000)
+	kwargs.setdefault('steps_route', 100)
 
-	return node_to_idx, idx_to_node
+	routes, success = clarke_wright(
+		adjacency,
+		depot,
+		route_bounds,
+		leg_bounds,
+		stop_weights,
+		)
+	
+	try:
+
+		routes = anneal_routes(
+			adjacency,
+			routes,
+			route_bounds,
+			leg_bounds,
+			stop_weights,
+			steps = kwargs['steps_routes'],
+			)
+
+	except:
+
+		pass
+
+	try:
+	
+		for route in routes:
+
+			route = anneal_route(
+				adjacency,
+				opt_route,
+				route_bounds,
+				leg_bounds,
+				stop_weights,
+				steps = kwargs['steps_route'],
+				)
+	
+	except:
+
+		pass
+
+	return routes, success
+
+def produce_routing_inputs(graph, parameters, **kwargs):
+
+	# Assigning depots by Voronoi cells unless otherwise specified
+	depot_nodes = parameters['depot_nodes']
+	voronoi_weight = parameters['voronoi_weight']
+
+	graph = assign_depot(graph, depot_nodes, voronoi_weight = voronoi_weight, **kwargs)
+
+	# Assinging random number to each node for selection
+	seed = parameters['rng_seed']
+
+	graph = assign_rng(graph, seed, **kwargs)
+	
+	# Assinging vehicles to nodes
+	vehicles = parameters['vehicles']
+
+	graph = assign_vehicle(graph, vehicles, **kwargs)
+
+	# Producing subgraphs for routing
+	categories = {
+		'vehicle': list(parameters['vehicles'].keys()),
+		'depot': parameters['depot_nodes'],
+	}
+
+	subgraphs = produce_subgraphs(graph, categories, **kwargs)
+
+	# Producing adjacency matrices for routing
+	route_weights = parameters['route_weights']
+
+	adjacency = produce_adjacency(subgraphs, route_weights, **kwargs)
+
+	# Producing assignments for routing
+	assignments = produce_assignments(subgraphs, **kwargs)
+
+	# Producing bounds
+	route_bounds, leg_bounds, stop_weights = produce_bounds(
+		subgraphs, vehicles, route_weights, **kwargs)
+
+	# Combining
+	cases = {}
+
+	for key in subgraphs.keys():
+
+		cases[key]={}
+
+		cases[key]['graph'] = subgraphs[key]
+		cases[key]['adjacency'] = adjacency[key]
+		cases[key]['assignments'] = assignments[key]
+		cases[key]['route_bounds'] = route_bounds[key]
+		cases[key]['leg_bounds'] = leg_bounds[key]
+		cases[key]['stop_weights'] = stop_weights[key]
+	
+	return cases

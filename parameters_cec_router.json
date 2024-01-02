@@ -1,15 +1,5 @@
 {
 	"rng_seed":12345,
-	"charger_network_vehicle_assignment":{
-		"Other":["Bolt","Lightning","IONIQ 5"],
-		"ChargePoint Network":["Bolt","Lightning","IONIQ 5"],
-		"eVgo Network":["Bolt","Lightning","IONIQ 5"],
-		"Electrify America":["Bolt","Lightning","IONIQ 5"],
-		"Tesla":["Model 3"],
-		"FLO":["Bolt","Lightning","IONIQ 5"],
-		"Volta":["Bolt","Lightning","IONIQ 5"],
-		"Tesla Destination":["Model 3"]
-	},
 	"depot_nodes":[
 		1000000000,
 		2000000000
@@ -17,85 +7,165 @@
 	"route_weights":["length","time"],
 	"voronoi_weight":"length",
 	"vehicles":{
-		"Bolt":{
+		"Bolt (Short)":{
 			"node_criteria":{
 				"depot":"lambda n: n['depot'] in [1000000000,2000000000]",
 				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
 				"rng":"lambda n: (n['rng'] >= 0) & (n['rng'] < .34) | (n['ev_network_clean'] == 'Depot')"
 			},
 			"route_bounds":{
-				"length":[[0,400e3],[0,400e3]],
-				"time":[[0,10800],[0,28800]]
+				"length":[0,400e3],
+				"time":[0,10800]
 			},
 			"leg_bounds":{
-				"length":[[20e3,300e3],[20e3,300e3]],
-				"time":[[0,10800],[0,28800]]
+				"length":[20e3,300e3],
+				"time":[0,10800]
 			},
 			"stop_weights":{
-				"length":[0,0],
-				"time":[1800,1800]
+				"length":0,
+				"time":1800
 			},
-			"number":[5,-1]
+			"number":5
 		},
-		"Lightning":{
+		"Bolt (Regular)":{
+			"node_criteria":{
+				"depot":"lambda n: n['depot'] in [1000000000,2000000000]",
+				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
+				"rng":"lambda n: (n['rng'] >= 0) & (n['rng'] < .34) | (n['ev_network_clean'] == 'Depot')"
+			},
+			"route_bounds":{
+				"length":[0,400e3],
+				"time":[0,28800]
+			},
+			"leg_bounds":{
+				"length":[20e3,300e3],
+				"time":[0,28800]
+			},
+			"stop_weights":{
+				"length":0,
+				"time":1800
+			},
+			"number":Infinity
+		},
+		"Lightning (Short)":{
 			"node_criteria":{
 				"depot":"lambda n: n['depot'] in [1000000000,2000000000]",
 				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
 				"rng":"lambda n: (n['rng'] >= .34) & (n['rng'] < .67) | (n['ev_network_clean'] == 'Depot')"
 			},
 			"route_bounds":{
-				"length":[[0,400e3],[0,400e3]],
-				"time":[[0,10800],[0,28800]]
+				"length":[0,400e3],
+				"time":[0,10800]
 			},
 			"leg_bounds":{
-				"length":[[20e3,300e3],[20e3,300e3]],
-				"time":[[0,10800],[0,28800]]
+				"length":[20e3,300e3],
+				"time":[0,10800]
 			},
 			"stop_weights":{
-				"length":[0,0],
-				"time":[1800,1800]
+				"length":0,
+				"time":1800
 			},
-			"number":[5,-1]
+			"number":5
 		},
-		"IONIQ 5":{
+		"Lightning (Regular)":{
+			"node_criteria":{
+				"depot":"lambda n: n['depot'] in [1000000000,2000000000]",
+				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
+				"rng":"lambda n: (n['rng'] >= .34) & (n['rng'] < .67) | (n['ev_network_clean'] == 'Depot')"
+			},
+			"route_bounds":{
+				"length":[0,400e3],
+				"time":[0,28800]
+			},
+			"leg_bounds":{
+				"length":[20e3,300e3],
+				"time":[0,28800]
+			},
+			"stop_weights":{
+				"length":0,
+				"time":1800
+			},
+			"number":Infinity
+		},
+		"IONIQ 5 (Short)":{
 			"node_criteria":{
 				"depot":"lambda n: n['depot'] in [1000000000,2000000000]",
 				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
 				"rng":"lambda n: ((n['rng'] >= .67) & (n['rng'] <= 1.)) | (n['ev_network_clean'] == 'Depot')"
 			},
 			"route_bounds":{
-				"length":[[0,350e3],[0,350e3]],
-				"time":[[0,10800],[0,28800]]
+				"length":[0,350e3],
+				"time":[0,10800]
 			},
 			"leg_bounds":{
-				"length":[[20e3,265e3],[20e3,265e3]],
-				"time":[[0,10800],[0,28800]]
+				"length":[20e3,265e3],
+				"time":[0,10800]
 			},
 			"stop_weights":{
-				"length":[0,0],
-				"time":[1800,1800]
+				"length":0,
+				"time":1800
 			},
-			"number":[5,-1]
+			"number":5
 		},
-		"Model 3":{
+		"IONIQ 5 (Regular)":{
+			"node_criteria":{
+				"depot":"lambda n: n['depot'] in [1000000000,2000000000]",
+				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
+				"rng":"lambda n: ((n['rng'] >= .67) & (n['rng'] <= 1.)) | (n['ev_network_clean'] == 'Depot')"
+			},
+			"route_bounds":{
+				"length":[0,350e3],
+				"time":[0,28800]
+			},
+			"leg_bounds":{
+				"length":[20e3,265e3],
+				"time":[0,28800]
+			},
+			"stop_weights":{
+				"length":0,
+				"time":1800
+			},
+			"number":Infinity
+		},
+		"Model 3 (Short)":{
 			"node_criteria":{
 				"depot":"lambda n: n['depot'] in [1000000000,2000000000]",
 				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Tesla', 'Tesla Destination']",
 				"rng":"lambda n: (n['rng'] >= 0) & (n['rng'] <= 1.) | (n['ev_network_clean'] == 'Depot')"
 			},
 			"route_bounds":{
-				"length":[[0,500e3],[0,500e3]],
-				"time":[[0,10800],[0,28800]]
+				"length":[0,500e3],
+				"time":[0,10800]
 			},
 			"leg_bounds":{
-				"length":[[20e3,375e3],[20e3,375e3]],
-				"time":[[0,10800],[0,28800]]
+				"length":[20e3,375e3],
+				"time":[0,10800]
 			},
 			"stop_weights":{
-				"length":[0,0],
-				"time":[1800,1800]
+				"length":0,
+				"time":1800
 			},
-			"number":[5,-1]
+			"number":5
+		},
+		"Model 3 (Regular)":{
+			"node_criteria":{
+				"depot":"lambda n: n['depot'] in [1000000000,2000000000]",
+				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Tesla', 'Tesla Destination']",
+				"rng":"lambda n: (n['rng'] >= 0) & (n['rng'] <= 1.) | (n['ev_network_clean'] == 'Depot')"
+			},
+			"route_bounds":{
+				"length":[0,500e3],
+				"time":[0,28800]
+			},
+			"leg_bounds":{
+				"length":[20e3,375e3],
+				"time":[0,28800]
+			},
+			"stop_weights":{
+				"length":0,
+				"time":1800
+			},
+			"number":Infinity
 		}
 	}
 }
