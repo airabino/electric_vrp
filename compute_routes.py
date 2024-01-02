@@ -1,161 +1,93 @@
 import warnings
 warnings.filterwarnings("ignore")
 
-import os
 import sys
 import time
+import json
 import argparse
-import numpy as np
 import pandas as pd
-import geopandas as gpd
-import pickle as pkl
-import matplotlib.pyplot as plt
+
 
 import src
 from src.utilities import CondPrint
+from src.progress_bar import ProgressBar
 
-str_color='\r\033[32m'
-
+str_color = '\033[1m\033[38;5;34m\033[48;5;0m'
 
 #ArgumentParser objecct configuration
 parser = argparse.ArgumentParser(
 	prog = 'module: compute_routes',
 	description = (
-		'Computes optimal routes for vertices'
+		'Solves Vehicle Routing Problem (VRP) for graph and parameters'
 		),
 	)
 
 parser.add_argument(
-	'-i', '--input_file',
-	nargs = '+',
-	help = 'Required: vertices .json file',
-	required = True,
+	'-g', '--graph_file',
+	help = 'JSON file storing NLG for graph with links',
 	)
 
 parser.add_argument(
 	'-o', '--output_file',
-	help = 'Output file for routes, default is \'routes.json\'',
-	default = 'routes.json'
-	)
-
-parser.add_argument(
-	'-p', '--parameters_file',
-	help = 'Required: .json file containing vertices',
-	)
-
-parser.add_argument(
-	'-f', '--fields',
-	help = (
-		'Fields to add to vertices' +
-		'If a keyword contains spaces use quotes ex: \'EV Network Clean\''
-		),
-	nargs = '+',
+	help = 'Output file for routes .json',
+	default = 'routes.json',
 	)
 
 parser.add_argument(
 	'-v', '--verbose',
 	help = 'Optional status printing',
-	action='store_true',
+	action='store_false',
 	)
 
-def RawRoutes(graph,vehicle_adjacency,parameters,args):
-
-	vehicles=list(parameters['vehicles'].keys())
-	depots=parameters['depot_vertices']
-
-	raw_routes={}
-
-	t0=time.time()
-
-	for vehicle in vehicles:
-
-		raw_routes[vehicle]={}
-
-		for depot in depots:
-
-			t1=time.time()
-			CondPrint(f'Routing for {vehicle} from {depot} ... ', args.verbose, end='')
-
-			adjacency=vehicle_adjacency[vehicle][depot]
-
-			raw_routes[vehicle][depot]=src.router.ProduceRoutesVehicleDepot(
-				graph,vehicle,depot,parameters,adjacency)
-
-			CondPrint(f'Done, {time.time()-t1:.4f} seconds elapsed', args.verbose)
-
-	return raw_routes
+parser.add_argument(
+	'-p', '--parameters_file',
+	help = 'JSON containing inputs for VRP',
+	required = True,
+	)
 
 if __name__ == "__main__":
 
 	t0 = time.time()
 
-	args = parser.parse_args(sys.argv[1:])
-	CondPrint(str_color + '\n' + 'Module compute_routes', args.verbose)
+	args = vars(parser.parse_args(sys.argv[1:]))
+	CondPrint(str_color + '\n' + 'Module compute_routes' + '\n', args['verbose'])
 
-	# Loading vertices into graph
-	t1 = time.time()
-	CondPrint('Loading vertices as graph ... ', args.verbose, end = '', flush = True)
-	vertices=src.store.Load('vertices.json')
-	graph=src.network.NX_Graph_From_Vertices(vertices)
+	CondPrint('Loading parameters file', args['verbose'])
+	with open(args['parameters_file'], 'r') as file:
 
-	CondPrint(f'Done: {time.time()-t1:.3f} seconds', args.verbose)
+		parameters = json.load(file)
 
-	# Loading parameters
-	t1 = time.time()
-	CondPrint('Loading parameters ... ', args.verbose, end = '', flush = True)
-	parameters = src.store.Load(args.parameters_file)
+	for key in parameters.keys():
 
-	CondPrint(f'Done: {time.time()-t1:.3f} seconds', args.verbose)
+		args[key] = parameters[key]
 
-	# Producing adjacency matrices
-	t1 = time.time()
-	CondPrint('Producing adjacency information ... ', args.verbose, end = '', flush = True)
-	vehicle_adjacency,vehicle_nodes=src.router.ProcessInputs(graph, parameters)
-	CondPrint(f'Done: {time.time()-t1:.3f} seconds', args.verbose)
+	CondPrint('Loading graph', args['verbose'])
+	graph = src.graph.graph_from_json(args['graph_file'])
 
-	# Computing routes for each vehicle and depot
-	t1 = time.time()
-	CondPrint('Computing raw routes:', args.verbose, flush = True)
-	raw_routes=RawRoutes(graph, vehicle_adjacency, parameters, args)
-	CondPrint(f'Done: {time.time()-t1:.3f} seconds', args.verbose)
+	CondPrint('Creating routing inputs', args['verbose'])
+	cases = src.router.produce_routing_inputs(graph, parameters)
 
-	# Adding route information
-	t1 = time.time()
-	CondPrint('Adding route information ... ', args.verbose, end = '', flush = True)
-	vehicles=list(parameters['vehicles'].keys())
-	depots=parameters['depot_vertices']
+	CondPrint('Computing raw routes\n', args['verbose'])
+	final_routes = []
+	for key in ProgressBar(list(cases.keys()), end_color = ''):
 
-	if args.fields is not None:
+		case = cases[key]
 
-		fields = args.fields
+		raw_routes, success = src.router.router(case)
 
-	else:
+		routes = src.router.route_information(graph, raw_routes, parameters['route_fields'])
 
-		fields=parameters['vertex_fields']
+		for route in routes:
 
-	full_routes={}
+			route['vehicle'] = case['information']['vehicle']
+			route['depot'] = case['information']['depot']
 
-	for vehicle in vehicles:
+		final_routes.extend(routes)
 
-		full_routes[vehicle]={}
+	#Writing to file
+	CondPrint('\n\nWriting to file\n', args['verbose'])
+	src.graph.nlg_to_json(final_routes, args['output_file'])
 
-		for depot in depots:
-
-			full_routes[vehicle][depot]=src.post_processing.AddRouteInformation(
-				graph, raw_routes[vehicle][depot], fields)
-
-	CondPrint(f'Done: {time.time()-t1:.3f} seconds', args.verbose)
-
-	# Writing to file
-	CondPrint('Writing to file ... ', args.verbose, end = '', flush = True)
-	src.store.Write(
-		vertices,
-		filename = args.output_file,
-		permission = 'w'
-		)
-
-	CondPrint(f'Done: {time.time()-t1:.3f} seconds', args.verbose)
-
-	CondPrint('\n' + f'Done: {time.time()-t0:.3f} seconds' + '\n', args.verbose)
-
-
+	CondPrint(
+		f'\nDone: {time.time()-t0:.3f} seconds' +
+		'\033[0m\n', args['verbose'])

@@ -1,3 +1,7 @@
+'''
+Creates routes for vehicles and depots on a graph
+'''
+
 import os
 import sys
 import time
@@ -5,656 +9,390 @@ import numpy as np
 import networkx as nx
 
 from copy import deepcopy
+from operator import itemgetter
+from itertools import product as iter_prod
 
 from .utilities import ProgressBar
+from .graph import subgraph
+from .clarke_wright  import *
+from .simulated_annealing import *
 
-from operator import itemgetter
-
-#CEC Specific functions
-
-def Assign(items,buckets,seed=None):
-	'''
-	distribute items randomly among sets such that all sets are
-	close to evenly represented
-	'''
-
-	rng=np.random.default_rng(seed)
-
-	assignment={}
-
-	item_bins=[[] for idx in range(len(buckets))]
-
-	for item in items:
-
-		bin_index=rng.integers(0,len(item_bins))
-
-		item_bins[bin_index].append(item)
-
-	for idx,bucket in enumerate(buckets):
-
-		assignment[bucket]=np.array(item_bins[idx])
-
-	return assignment
-
-def ProcessInputs(graph,parameters):
-
-	vertex_group_field=parameters['vertex_group_field']
-	charger_networks=parameters['vertex_group_vehicle_assignment'].keys()
-
-	vehicle_nodes={}
-
-	for network,vehicles in parameters['vertex_group_vehicle_assignment'].items():
-		
-		network_nodes=np.array(
-			[key for key,val in graph._node.items() if \
-			 val[vertex_group_field]==network])
-
-		assignment=Assign(network_nodes,vehicles,seed=parameters['rng_seed'])
-
-		for vehicle in vehicles:
-
-			if vehicle in vehicle_nodes.keys():
-
-				vehicle_nodes[vehicle]=np.concatenate(
-					(vehicle_nodes[vehicle],assignment[vehicle]))
-
-			else:
-
-				vehicle_nodes[vehicle]=np.concatenate(
-					(parameters['depot_vertices'],assignment[vehicle]))
-
-	center_nodes=set(parameters['depot_vertices'])
-
-	depot_nodes=VoronoiCells(graph,center_nodes,weight='length')
-
-	for vehicle in parameters['vehicles']:
-
-		assignment={}
-
-		for depot in parameters['depot_vertices']:
-
-			assignment[depot]=np.intersect1d(vehicle_nodes[vehicle],depot_nodes[depot])
-			
-		vehicle_nodes[vehicle]=assignment
-	
-	vehicle_adjacency={}
-
-	for vehicle in parameters['vehicles']:
-
-		vehicle_adjacency[vehicle]={}
-
-		for depot in parameters['depot_vertices']:
-
-			vehicle_adjacency[vehicle][depot]={}
-			
-			vehicle_adjacency[vehicle][depot]['matrices']=ProduceAdjacency(
-				graph,nodelist=vehicle_nodes[vehicle][depot],weights=['length','time'])
-		
-			node_to_idx,idx_to_node=Assignments(vehicle_nodes[vehicle][depot])
-			vehicle_adjacency[vehicle][depot]['node_to_idx']=node_to_idx
-			vehicle_adjacency[vehicle][depot]['idx_to_node']=idx_to_node
-
-	return vehicle_adjacency,vehicle_nodes
-
-def ProduceRoutesVehicleDepot(graph,vehicle,depot,parameters,adjacency):
-
-	final_routes=[]
-	adj=deepcopy(adjacency)
-
-	constraint_sets=parameters['vehicles'][vehicle]
-
-	for idx_c in range(len(constraint_sets)):
-
-		constraints=constraint_sets[idx_c]
-	
-		depot_indices=[adj['node_to_idx'][depot]] 
-
-		route_bounds=(
-			(constraints['min_route_distance'],constraints['max_route_distance']),
-			(constraints['min_route_time'],constraints['max_route_time']),
-		)
-
-		leg_bounds=(
-			(constraints['min_leg_distance'],constraints['max_leg_distance']),
-			(constraints['min_leg_time'],constraints['max_leg_time']),
-		)
-
-		stop_weight=(
-			constraints['stop_added_distance'],
-			constraints['stop_added_time'],
-		)
-
-		routes,success=ClarkeWright(
-			adj['matrices'],
-			depot_indices,
-			route_bounds=route_bounds,
-			leg_bounds=leg_bounds,
-			stop_weight=stop_weight,
-			max_iterations=100000,
-		)
-
-		routes_nodes=(
-			[[adj['idx_to_node'][stop] for stop in route] \
-			for route in routes])
-
-		routes_nodes_opt=([
-			RouteOptimization(graph,route) for route in routes_nodes])
-
-		len_routes=np.array([len(route) for route in routes_nodes_opt])
-
-		num=-constraints['number']
-		indices_keep=np.argsort(len_routes)[num:]
-		routes_keep=[routes_nodes_opt[idx_r] for idx_r in indices_keep]
-
-		final_routes.extend(routes_keep)
-
-		for idx in indices_keep:
-
-			visited=routes_nodes_opt[idx][1:-1]
-			visited_indices=[adj['node_to_idx'][v] for v in visited]
-
-			for idx_v in visited_indices:
-
-				for idx_m in range(len(adj['matrices'])):
-
-					adj['matrices'][idx_m][idx_v,:]=0
-					adj['matrices'][idx_m][:,idx_v]=0
-
-	visited=[]
-
-	for route in final_routes:
-		visited.extend(route[1:-1])
-
-	not_visited=np.setdiff1d(list(adjacency['node_to_idx'].keys()),visited+[depot])
-	additional_routes=[[depot,nv,depot] for nv in not_visited]
-	final_routes.extend(additional_routes)
-
-	return final_routes
-
-#General functions
-
-def VoronoiCells(graph,center_nodes,nodes=None,weight=None):
+def voronoi_cells(graph, center_nodes, nodes = None, weight = None, **kwargs):
 	'''
 	assign nodes to reference nodes by proximity
 	'''
 
-	voronoi_cells=nx.voronoi_cells(graph,center_nodes,weight=weight)
+	voronoi_cells = nx.voronoi_cells(graph, center_nodes, weight = weight)
 
 	for key in voronoi_cells.keys():
 
 		if nodes is not None:
 
-			voronoi_cells[key]=np.intersect1d(list(voronoi_cells[key]),nodes)
+			voronoi_cells[key] = np.intersect1d(list(voronoi_cells[key]), nodes)
 
 		else:
 
-			voronoi_cells[key]=np.array(list(voronoi_cells[key]))
+			voronoi_cells[key] = np.array(list(voronoi_cells[key]))
 
 	return voronoi_cells
 
-def ProduceAdjacency(graph,nodelist=None,weights=[]):
+def assign_depot(graph, depot_nodes, nodes = None, weight = None, **kwargs):
 	'''
-	Produces list of adjacency matrices for each weight in weights
+	Assign nodes to depots using weighted Voronoi cells 
 	'''
-	adjacency=[]
+	kwargs.setdefault('field', 'depot')
+	kwargs.setdefault('overwrite_depots', True)
 
-	for weight in weights:
+	field = kwargs['field']
 
-		adjacency.append(
-			nx.to_numpy_array(graph,nodelist=nodelist,weight=weight)
-			)
+	vc = voronoi_cells(graph, depot_nodes, nodes = nodes, weight = weight)
+
+	for depot in depot_nodes:
+
+		for node in vc[depot]:
+
+			if kwargs['overwrite_depots'] or (field not in graph._node[node].keys()):
+
+				graph._node[node][field] = depot
+
+	for node in graph.nodes:
+
+		if field not in graph._node[node].keys():
+
+			graph._node[node][field] = ''
+
+	return graph
+
+def assign_rng(graph, seed = None, field = 'rng', **kwargs):
+	'''
+	Assign a random number to each node
+	'''
+
+	rng  = np.random.default_rng(seed)
+
+	for node in graph.nodes:
+		graph._node[node][field] = rng.random()
+
+	return graph
+
+def assign_vehicle(graph, vehicles, field = 'vehicle', **kwargs):
+	'''
+	Assigns vehicles based on vehicle node_criteria functions
+	'''
+
+	for node in graph.nodes:
+
+		graph._node[node][field] = []
+
+	for vehicle, vehicle_information in vehicles.items():
+
+		for key, fun in vehicle_information['node_criteria'].items():
+
+			if type(fun) is str:
+
+				vehicles[vehicle]['node_criteria'][key] = eval(fun)
+	
+	for vehicle, vehicle_information in vehicles.items():
+
+		for node in graph.nodes:
+
+			meets_criteria = True
+
+			try:
+
+				for key, fun in vehicle_information['node_criteria'].items():
+
+					meets_criteria *= fun(graph._node[node])
+
+			except:
+
+				meets_criteria = False
+
+			if meets_criteria:
+
+				graph._node[node][field].append(vehicle)
+
+	return graph
+
+def produce_subgraphs(graph, categories, **kwargs):
+
+	subgraphs = {}
+
+	combinations = list(iter_prod(*[v for v in categories.values()]))
+
+	# print(combinations)
+
+	for combination in combinations:
+
+		nodelist = []
+
+		for node in graph.nodes:
+
+			include = True
+
+			for idx, field in enumerate(categories.keys()):
+
+				val = graph._node[node][field]
+
+				if hasattr(val, '__iter__'):
+
+					if len(val) == 0:
+
+						include = False
+
+					else:
+
+						include *= combination[idx] in graph._node[node][field]
+
+				else:
+
+					include *= graph._node[node][field] == combination[idx]
+
+			if include:
+
+				nodelist.append(node)
+
+		subgraphs[combination] = subgraph(graph, nodelist)
+
+	return subgraphs
+
+def produce_adjacency(subgraphs, weights = [], **kwargs):
+
+	adjacency = {}
+
+	for key, value in subgraphs.items():
+
+		adjacency[key] = adjacency_matrices(value, weights = weights)
 
 	return adjacency
 
-def ComputeSavingsMatrix(adjacency,depot_index=0,bounds=(0,np.inf)):
+def adjacency_matrices(graph, nodelist = None, weights = [], **kwargs):
 	'''
-	Computing the savings matrix from an adjacency matrix.
-
-	Savings is the difference between:
-
-	depot -> destination 1 -> depot -> destination 2 -> depot
-
-	and
-
-	depot -> destination 1 -> destination 2 -> depot
-
-
-	Values for links with negative savings or invalid lnks will be set to zero
-
-	Requires the definition of a depot location
+	Produces list of adjacency matrices for each weight in weights
 	'''
+	adjacency = []
 
-	cost_from,cost_to=np.meshgrid(adjacency[:,depot_index],adjacency[depot_index])
+	for weight in weights:
 
-	savings=cost_from+cost_to-adjacency
+		adjacency.append(nx.to_numpy_array(
+			graph,
+			nodelist = nodelist,
+			weight = weight,
+			nonedge = np.inf,
+			))
 
-	# Negative savings should nobe be considered
-	savings[savings<0]=0
+	return adjacency
 
-	# No self-savings
-	savings[np.diag_indices(adjacency.shape[0])]=0
+def produce_assignments(subgraphs, **kwargs):
 
-	#No savings from infeasible edges
-	savings[adjacency<bounds[0]]=0
-	savings[adjacency>bounds[1]]=0
+	subgraph_assignments = {}
 
-	return savings
+	for key, value in subgraphs.items():
 
-def InitialRoutes(adjacency,depot_indices):
-	'''
-	Prodces list of initial 1-stop routes for the Clarke Wright algorithm where
-	each route connects a stop to the nearest depot
-	'''
+		node_to_idx, idx_to_node = assignments(list(value.nodes))
 
-	depot_indices=np.array(depot_indices)
+		subgraph_assignments[key] = {}
+		subgraph_assignments[key]['node_to_idx'] = node_to_idx
+		subgraph_assignments[key]['idx_to_node'] = idx_to_node
 
-	if type(adjacency) is np.ndarray:
-		adjacency=[adjacency]
+	return subgraph_assignments
 
-	#Pulling destination indices
-	destination_indices=np.array([idx for idx in range(adjacency[0].shape[0])])
-		# if idx not in depot_indices])
+def assignments(nodes, **kwargs):
 
-	# Finding closest depots for all destination
-	depot_adjacency=adjacency[0][:,depot_indices]
-	closest_depots=depot_indices[np.argmin(depot_adjacency,axis=1)]
+	node_to_idx = {nodes[idx]: idx for idx in range(len(nodes))}
+	idx_to_node = {val: key for key, val in node_to_idx.items()}
 
-	# Creating initial routes
-	routes=[]
-	route_weights=[]
+	return node_to_idx, idx_to_node
 
-	for destination_index in destination_indices:
-		depot_index=closest_depots[destination_index]
+def produce_bounds(subgraphs, vehicles, weights, **kwargs):
 
-		routes.append([
-			depot_index,
-			destination_index,
-			depot_index,
-			])
+	route_bounds = {}
+	leg_bounds = {}
+	stop_weights = {}
 
-		route_weight=([
-			adj[depot_index,destination_index]+
-			adj[destination_index,depot_index] \
-			for adj in adjacency
-		])
+	for key, value in subgraphs.items():
 
-		route_weights.append(route_weight)
+		vehicle, _ = key
 
-	return routes,route_weights
+		route_bounds[key] = []
+		leg_bounds[key] = []
+		stop_weights[key] = []
 
-def RouteTime(graph,route,vertex_time_field='time',edge_time_field='time'):
+		for weight in weights:
 
-	from_indices=route[:-1]
-	to_indices=route[1:]
+			route_bounds[key].append(vehicles[vehicle]["route_bounds"][weight])
+			leg_bounds[key].append(vehicles[vehicle]["leg_bounds"][weight])
+			stop_weights[key].append(vehicles[vehicle]["stop_weights"][weight])
 
-	route_time=0
+	return route_bounds, leg_bounds, stop_weights
 
-	for idx in range(len(from_indices)):
+def produce_information(subgraphs, vehicles, **kwargs):
 
-		# print(graph._adj[from_indices[idx]][to_indices[idx]])
+	information = {}
 
-		route_time+=graph._adj[from_indices[idx]][to_indices[idx]][edge_time_field]
-		route_time+=graph._node[to_indices[idx]][vertex_time_field]
+	for key, value in subgraphs.items():
 
-	return route_time
+		vehicle, depot = key
 
-def RouteInformation(graph,route,distance_field='length',time_field='time'):
+		information[key] = {}
 
-	from_indices=route[:-1]
-	to_indices=route[1:]
+		information[key]['vehicle'] = vehicle
+		information[key]['depot'] = depot
+		information[key]['fleet_size'] = vehicles[vehicle]['fleet_size']
 
-	route_distance=0
-	route_time=0
+	return information
 
-	for idx in range(len(from_indices)):
+def produce_routing_inputs(graph, parameters, **kwargs):
 
-		route_distance+=graph._adj[from_indices[idx]][to_indices[idx]][distance_field]
+	# Assigning depots by Voronoi cells unless otherwise specified
+	depot_nodes = parameters['depot_nodes']
+	voronoi_weight = parameters['voronoi_weight']
 
-		route_time+=graph._adj[from_indices[idx]][to_indices[idx]][time_field]
-		route_time+=graph._node[to_indices[idx]][time_field]
+	graph = assign_depot(graph, depot_nodes, voronoi_weight = voronoi_weight, **kwargs)
 
-	return route_distance,route_time
+	# Assinging random number to each node for selection
+	seed = parameters['rng_seed']
 
-def Assignments(nodes):
+	graph = assign_rng(graph, seed, **kwargs)
+	
+	# Assinging vehicles to nodes
+	vehicles = parameters['vehicles']
 
-	node_to_idx={nodes[idx]:idx for idx in range(len(nodes))}
-	idx_to_node={val:key for key,val in node_to_idx.items()}
+	graph = assign_vehicle(graph, vehicles, **kwargs)
 
-	return node_to_idx,idx_to_node
+	# Producing subgraphs for routing
+	categories = {
+		'vehicle': list(parameters['vehicles'].keys()),
+		'depot': parameters['depot_nodes'],
+	}
 
-def FindRoutes(routes,node_0,node_1):
+	subgraphs = produce_subgraphs(graph, categories, **kwargs)
 
-	first_route_index=[]
-	second_route_index=[]
+	# Producing adjacency matrices for routing
+	route_weights = parameters['route_weights']
 
-	itemget=itemgetter(1)
+	adjacency = produce_adjacency(subgraphs, route_weights, **kwargs)
 
-	result=filter(
-		lambda idx: itemget(routes[idx])==(node_0),
-		list(range(len(routes)))
+	# Producing assignments for routing
+	assignments = produce_assignments(subgraphs, **kwargs)
+
+	# Producing bounds
+	route_bounds, leg_bounds, stop_weights = produce_bounds(
+		subgraphs, vehicles, route_weights, **kwargs)
+
+	# Producing case information
+	information = produce_information(subgraphs, vehicles, **kwargs)
+
+	# Combining
+	cases = {}
+
+	for key in subgraphs.keys():
+
+		cases[key]={}
+
+		cases[key]['graph'] = subgraphs[key]
+		cases[key]['adjacency'] = adjacency[key]
+		cases[key]['assignments'] = assignments[key]
+		cases[key]['route_bounds'] = route_bounds[key]
+		cases[key]['leg_bounds'] = leg_bounds[key]
+		cases[key]['stop_weights'] = stop_weights[key]
+		cases[key]['information'] = information[key]
+	
+	return cases
+
+def router(case, **kwargs):
+
+	kwargs.setdefault('steps_routes', 1000)
+	kwargs.setdefault('steps_route', 100)
+
+	depot_index = case['assignments']['node_to_idx'][case['information']['depot']]
+
+	routes, success = clarke_wright(
+		case['adjacency'],
+		depot_index,
+		case['route_bounds'],
+		case['leg_bounds'],
+		case['stop_weights'],
 		)
 
-	for res in result:
+	# Removing depot - depot - depot route
+	try:
 
-		first_route_index=res
+		routes.remove([depot_index, depot_index, depot_index])
 
-	itemget=itemgetter(-2)
+	except:
 
-	result=filter(
-		lambda idx: itemget(routes[idx])==(node_1),
-		list(range(len(routes)))
+		pass
+	
+	# Annealing between routes
+	routes = anneal_routes(
+		case['adjacency'],
+		routes,
+		case['route_bounds'],
+		case['leg_bounds'],
+		case['stop_weights'],
+		steps = kwargs['steps_routes'],
 		)
-
-	for res in result:
-
-		second_route_index=res
-
 	
+	# Annealing within routes
+	for route in routes:
 
-	return first_route_index,second_route_index
-
-def ClarkeWright(
-	adjacency,
-	depot_indices,
-	route_bounds,
-	leg_bounds,
-	stop_weight,
-	max_iterations=100000,
-	):
-	
-	'''
-	Implements Clarke and Wright savings algorith for solving the VRP with flexible
-	numbers of vehicles per depot. Vehicles have range and capacity limitations. This
-	implementation allows for multiple depots.
-
-	The Clarke and Wright method attempts to implment all savings available in a savings
-	matrix by iteratively merging routes. Routes are initialized as 1-stop routes between
-	each destination and its closest depot. During iteration, savings are implemented
-	by merging the routes which allow for the capture of the greatest savings link
-	available.
-	'''
-
-	# #Dictionary assignemnts for graph indexing
-	# node_to_idx,idx_to_node=Assignments(graph)
-	
-	#Computing savings matrices for all adjacency matrices and all depots
-	savings=[]
-
-	for idx,adj in enumerate(adjacency):
-
-		savings_adj=[]
-
-		for depot_index in depot_indices:
-
-			savings_adj.append(
-				ComputeSavingsMatrix(adj,depot_index,leg_bounds[idx])
-				)
-
-		savings.append(np.array(savings_adj))
-
-	# Initializing routes - initial assumption is that locations will be served by
-	# closest depot. All initial routes are 1-stop (depot -> destination -> depot)
-	routes,route_weights=InitialRoutes(adjacency,depot_indices)
-
-	# print(route_weights)
-
-	routes=np.array(routes)
-	route_weights=np.array(route_weights)
-
-	# print(routes.shape,route_weights.shape)
-
-	combinable=(route_weights[:,0]/2<=leg_bounds[0][1])&(route_weights[:,0]>0)
-	non_combinable=(route_weights[:,0]/2>=leg_bounds[0][1])|(route_weights[:,0]<=0)
-	# print(combinable,non_combinable)
-
-	savings[0][:,non_combinable,:]=0
-	savings[0][:,:,non_combinable]=0
-
-	# print(non_combinable.shape,savings[0].shape)
-
-	routes=routes[combinable].tolist()
-	route_weights=route_weights[combinable].tolist()
-
-	# print(len(routes),len(route_weights))
-
-	k=0
-
-	# Implementing savings
-	success=False
-	for idx in range(max_iterations):
-
-		# Computing remaining savings
-		remaining_savings=savings[0].sum()
-
-		# If all savings incorporated then exit
-		if remaining_savings==0:
-			success=True
-			break
-
-		# Finding link with highest remaining savings
-		best_savings_link=np.unravel_index(np.argmax(savings[0]),savings[0].shape)
-
-		t0=time.time()
-
-		# Finding routes to merge - the routes can only be merged if there are
-		# routes which start with and end with the to and from index respectively.
-		# Routes with different depots can be merged if the savings call for it but
-		# all routes have to begin and terminate at the same depot
-
-		first_route_index=[]
-		second_route_index=[]
-
-		first_route_index,second_route_index=FindRoutes(
-			routes,
-			best_savings_link[1],
-			best_savings_link[2],
+		route = anneal_route(
+			case['adjacency'],
+			route,
+			case['route_bounds'],
+			case['leg_bounds'],
+			case['stop_weights'],
+			steps = kwargs['steps_route'],
 			)
-		# print(best_savings_link)
 
-		k+=time.time()-t0
+	# Adding routes to unreached destinations
+	reached = []
+	for route in routes:
+		reached.extend(route)
 
-		# print([idx,primary_savings.sum(),k/(idx+1)],end='\r')
+	possible_destinations = list(range(len(case['adjacency'][0])))
+	possible_destinations.remove(depot_index)
+	not_reached = np.array(possible_destinations)[~np.isin(possible_destinations, reached)]
 
-		# If a valid merge combination is found create a tentative route and evaluate
-		if first_route_index and second_route_index:
+	for destination in not_reached:
 
-			if routes[first_route_index][0]==routes[second_route_index][-1]:
+		routes.append([depot_index, destination, depot_index])
 
-				# Combining non-depot elements of merged routes
-				tentative_route_core=(
-					routes[first_route_index][1:-1]+routes[second_route_index][1:-1])
+	# Converting routes from indices to nodes
+	for idx, route in enumerate(routes):
 
-				# Creating tentative routes based out of each depot
-				tentative_routes=(
-					[[depot]+tentative_route_core+[depot]\
-					 for depot in depot_indices])
+		routes[idx] = [case['assignments']['idx_to_node'][node_idx] for node_idx in route]
 
-				# tentative_routes=(
-				# 	[routes[first_route_index][:-1]+routes[second_route_index][1:]]
-				# 	)
+	if not np.isinf(case['information']['fleet_size']):
 
-				# Finding the best of the tentative routes
-				tentative_route_weights=[]
+		route_lenghts = [len(route) for route in routes]
+		keep_indices = np.argsort(route_lenghts)[-case['information']['fleet_size']:]
+		routes = [routes[idx] for idx in keep_indices]
 
-				for tentative_route in enumerate(tentative_routes):
+	return routes, success
 
-					tentative_route_weight=[]
+def route_information(graph, raw_routes, fields):
 
-					for idx_savings,savings_matrix in enumerate(savings):
+	for key, fun in fields.items():
 
-						tentative_route_weight.append(
-							route_weights[first_route_index][idx_savings]+
-							route_weights[second_route_index][idx_savings]-
-							savings_matrix[*best_savings_link]
-							)
-					
-					tentative_route_weights.append(
-						tentative_route_weight
-						)
+		if isinstance(fun, str):
 
-				selected_route_index=np.argmin([rw[0] for rw in tentative_route_weights])
+			fields[key] = eval(fun)
 
-				selected_tentative_route=tentative_routes[selected_route_index]
+	routes = []
 
-				selected_tentative_route_weight=(
-					tentative_route_weights[selected_route_index])
+	for raw_route in raw_routes:
 
+		route = {key: [] for key in fields.keys()}
+		route['nodes'] = raw_route
 
-				# Checking if the merged route represents savings over the individual routes
-				improvement=selected_tentative_route_weight[0]<=(
-					route_weights[first_route_index][0]+
-					route_weights[second_route_index][0]
-					)
+		for node in raw_route:
 
-				selected_tentative_route_offset=[]
+			for key, fun in fields.items():
 
-				for idx_offset,offset in enumerate(stop_weight):
+				route[key].append(fun(graph._node[node]))
 
-					selected_tentative_route_offset.append(
-						sum([offset for idx in range(1,len(selected_tentative_route)-1)])
-						)
+		routes.append(route)
 
-				# Checking if the merged route is feasible
-				checks=[]
-
-				for idx_bounds,bounds in enumerate(route_bounds):
-
-					checks.append(
-						(
-							selected_tentative_route_weight[idx_bounds]+
-							selected_tentative_route_offset[idx_bounds]
-						)>=bounds[0]
-						)
-
-					checks.append(
-						(
-							selected_tentative_route_weight[idx_bounds]+
-							selected_tentative_route_offset[idx_bounds]
-						)<=bounds[1]
-						)
-
-
-				feasible=np.all(checks)
-
-				# If the merged route is an improvement and feasible it is integrated
-				if improvement and feasible:
-
-					# Adding the merged route
-					routes[first_route_index]=selected_tentative_route
-					route_weights[first_route_index]=selected_tentative_route_weight
-
-					# Removing the individual routes
-					routes.remove(routes[second_route_index])
-					route_weights.remove(route_weights[second_route_index])
-
-		# Removing the savings
-		savings[0][:,best_savings_link[1],best_savings_link[2]]=0
-		savings[0][:,best_savings_link[2],best_savings_link[1]]=0
-
-	return routes,success
-
-def ValidRoute(graph,route,min_weight,weight='length'):
-
-	from_indices=route[:-1]
-	to_indices=route[1:]
-
-	valid=True
-
-	for idx in range(len(from_indices)):
-
-		distance=graph[from_indices[idx]][to_indices[idx]][weight]
-
-		if distance<min_weight:
-
-			valid=False
-			break
-
-	return valid
-
-def RouteDistance(graph,route,weight='length'):
-
-	from_indices=route[:-1]
-	to_indices=route[1:]
-
-	route_distance=0
-
-	for idx in range(len(from_indices)):
-
-		route_distance+=graph._adj[from_indices[idx]][to_indices[idx]][weight]
-
-	return route_distance
-
-def AcceptanceProbability(e,e_prime,temperature):
-
-	return min([1,np.exp(-(e_prime-e)/temperature)])
-
-def Acceptance(e,e_prime,temperature):
-
-	return AcceptanceProbability(e,e_prime,temperature)>np.random.rand()
-
-def RouteOptimization(graph,route,steps=100,weight='length',
-	initial_temperature=1,min_weight=0):
-
-	# At lease 2 destinations need to be present for annealing
-	if len(route)<4:
-
-		return route
-
-	else:
-
-		# Initializing temperature
-		temperature=initial_temperature
-
-		# Getting initial route distance
-		route_distance=RouteDistance(graph,route,weight=weight)
-
-		# Saving initial route and distance
-		initial_route=route.copy()
-		initial_route_distance=route_distance
-
-		# print(route_distance)
-
-		# Looping while there is still temperature
-		k=0
-		while temperature>0:
-
-			# Randomly selecting swap vertices
-			swap_indices=np.random.choice(list(range(1,len(route)-1)),size=2,replace=False)
-
-			# Creating tentative route by swapping vertex order
-			tentative_route=route.copy()
-			tentative_route[swap_indices[0]]=route[swap_indices[1]]
-			tentative_route[swap_indices[1]]=route[swap_indices[0]]
-
-			# Checking if tentative route is valid
-			valid_route=ValidRoute(graph,tentative_route,min_weight,
-				weight=weight)
-
-			# Proceeding only for valid routes
-			if valid_route:
-
-				# Computing tentative route distance
-				tentative_route_distance=RouteDistance(graph,tentative_route,
-					weight=weight)
-
-				# Determining acceptance of tentative route
-				accept=Acceptance(route_distance,tentative_route_distance,temperature)
-
-				# print(route_distance,tentative_route_distance,accept,temperature)
-
-				# If accepted, replace route with tentative route
-				if accept:
-					
-					route=tentative_route
-					route_distance=tentative_route_distance
-
-			# Reducing temperature
-			temperature-=initial_temperature/steps
-
-		if route_distance<=initial_route_distance:
-
-			return route
-
-		else:
-
-			return initial_route
+	return routes

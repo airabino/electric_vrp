@@ -1,9 +1,8 @@
 # __init__.py
 
 from . import utilities
-from . import figures
-from . import network
-from . import router
-from . import store
-from . import router
-from . import post_processing
+from . import progress_bar # Progress bar for status tracking
+from . import figures # Graph and route plotting
+from . import graph # Graph handling
+from . import adjacency # Computation of adjacency for graphs
+from . import router # Solving VRP

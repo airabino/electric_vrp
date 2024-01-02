@@ -10,15 +10,9 @@ want to know path 'time', this edited code allows for this to be done efficientl
 '''
 from heapq import heappop, heappush
 from itertools import count
+from sys import float_info
 
-def Dijkstra(
-    graph,
-    sources,
-    fields,
-    log_paths=False,
-    cutoff=None,
-    target=None,
-    ):
+def dijkstra(graph, sources, targets = [], weights = {},return_paths = False):
     """Uses Dijkstra's algorithm to find shortest weighted paths
 
     Code is based on (is an edited version of):
@@ -37,23 +31,18 @@ def Dijkstra(
         iterable, the computed paths may begin from any one of the start
         nodes.
 
-    weight : edge field or list of edge fields
-        If one edge field is provided shortest path will be computed for
-        that field and that field will be included in the distance output.
-        If a list of edge fields is provided then shortest paths will be 
-        computed for the first field in the list but all fields will be
-        included in the distance output.
+    weights : dictionary - {field: cutoff}
+        Cumulative values for path fields will be returned - if any cutoff is exceeded
+        in reaching a node the node is considered unreachable via the given path.
+        AT LEAST ONE FIELD IS REQUIRED.
 
-    paths : Boolean
+    targets : iterable of nodes - optionally empty
+        Ending nodes for path. Search is halted when all targets are reached. If empty
+        all nodes will be reached if possible.
+
+    return_paths : Boolean
         Boolean whether or not to compute paths dictionary. If False None
-        is returned for the paths output.
-
-    target : node label, optional
-        Ending node for path. Search is halted when target is found.
-
-    cutoff : integer or float, optional
-        Length (sum of edge weights) at which the search is stopped.
-        If cutoff is provided, only return paths with summed weight <= cutoff.
+        is returned for the paths output. COMPUTING PATHS WILL INCREASE RUN-TIME.
 
     Returns
     -------
@@ -63,24 +52,34 @@ def Dijkstra(
 
     paths : dictionary
         Dictionary containing ordered lists of nodes passed on shortest
-        path between the origin node and other nodes.
+        path between the origin node and other nodes. If return_paths == False
+        then None will be returned.
     """
 
-    if log_paths:
+    if return_paths:
         paths = {source: [source] for source in sources}
     else:
         paths = None
 
-    if not hasattr(fields, '__iter__'):
-        fields=[fields]
+    n_weights=len(weights)
 
-    n_fields=len(fields)
+    for weight, limit in weights.items():
+        if limit <= 0:
+            weights[weight] = float_info.max
 
     graph_succ = graph._adj
     # For speed-up (and works for both directed and undirected graphs)
 
     dist = {}  # dictionary of final distances
     seen = {}
+
+    if len(targets) == 0:
+
+        remaining_targets=["null"]
+
+    else:
+
+        remaining_targets=targets[:]
 
     # fringe is heapq with 3-tuples (distance,c,node)
     # use the count c to avoid comparing nodes (may not be able to)
@@ -91,7 +90,7 @@ def Dijkstra(
     for source in sources:
 
         seen[source] = 0
-        heappush(fringe, ([0,]*n_fields, next(c), source))
+        heappush(fringe, ([0,]*n_weights, next(c), source))
 
     while fringe:
 
@@ -103,26 +102,31 @@ def Dijkstra(
 
         dist[v] = d
 
-        if v == target:
+        if v in remaining_targets:
+
+            remaining_targets.remove(v)
+
+
+        if len(remaining_targets) == 0:
 
             break
 
         for u, e in graph_succ[v].items():
 
-            # cost = weight(v, u, e)
-            cost = [e.get(field, 1) for field in fields]
+            cost = [e.get(field, 1) for field in weights.keys()]
 
             if cost[0] is None:
 
                 continue
 
-            vu_dist = [dist[v][idx] + cost[idx] for idx in range(n_fields)]
+            vu_dist = [dist[v][idx] + cost[idx] for idx in range(n_weights)]
 
-            if cutoff is not None:
+            cutoff_exceeded = any([vu_dist[idx] > weights[field] \
+                for idx, field in enumerate(weights.keys())])
 
-                if vu_dist[0] > cutoff:
+            if cutoff_exceeded:
 
-                    continue
+                continue
 
             if u in dist:
 
@@ -142,4 +146,4 @@ def Dijkstra(
 
                     paths[u] = paths[v] + [u]
 
-    return dist,paths
+    return dist, paths

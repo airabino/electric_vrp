@@ -2,26 +2,7 @@ import sys
 import time
 import numpy as np
 
-continental_us_fips=([1,4,5,6,8,9,10,11,12,13,16,17,18,19,20,21,22,23,24,25,26,
-	27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,44,45,46,47,48,49,50,
-	51,53,54,55,56])
-
-us_state_fips=([1,2,4,5,6,8,9,10,11,12,13,15,16,17,18,19,20,21,22,23,24,25,26,
-	27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,44,45,46,47,48,49,50,
-	51,53,54,55,56])
-
-alaska_fips=2
-hawaii_fips=15
-
-continental_us_abb=(['AL','AZ','AR','CA','CO','CT','DE','DC','FL','GA','ID','IL',
-	'IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH',
-	'NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT',
-	'VT','VA','WA','WV','WI','WY'])
-
-us_state_abb=(['AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL',
-	'IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH',
-	'NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT',
-	'VT','VA','WA','WV','WI','WY'])
+from shutil import get_terminal_size
 
 '''
 Calculates Gini coefficient (inequality)
@@ -84,15 +65,17 @@ def CondPrint(message,disp=True,*args,**kwargs):
 	if disp:
 		print(message,**kwargs)
 
-
 #Custom progress bar
 class ProgressBar():
 
-	def __init__(self,iterable,bar_length=20,disp=True,freq=1):
+	def __init__(self, iterable, message_length = None, disp = True, freq = 1):
+
+		if message_length is None:
+			message_length = get_terminal_size()[0]
 
 		self.iterable=iterable
 		self.total=len(iterable)
-		self.bar_length=bar_length
+		self.message_length=message_length
 		self.disp=disp
 		self.freq=freq
 		
@@ -110,17 +93,29 @@ class ProgressBar():
 
 	def Update(self,current,rt):
 
-		percent=float(current)*100/self.total
-		arrow='-'*int(percent/100*self.bar_length-1)+'>'
-		spaces=' '*(self.bar_length-len(arrow))
+		percent=float(current-1)*100/self.total
 		itps=current/rt
-		projrem=(self.total-current)/itps
+		projrem=max([0,(self.total-current)/itps])
 
-		info_string=("\r\033[32m %s [%s%s] (%d/%d) %d%%, %.2f %s, %.2f %s, %.2f %s \033[0m        \r"
-			%('Progress',arrow,spaces,current-1,self.total,percent,itps,'it/s',rt,'seconds elapsed',
-				projrem,'seconds remaining'))
+		str_0 = "\r\033[32m "
+		str_1 = "Progress"
+		str_3 = f" ({current-1}/{self.total}) {percent:.2f}%,"
+		str_4 = f" {itps:.2f} it/s,"
+		str_5 = f" {rt:.2f} s elapsed, {projrem:.2f} s remaining"
+		str_6 = "\033[0m\r"
 
-		sys.stdout.write(info_string)
+		columns_used = len(str_1 + str_3 + str_4 + str_5)
+
+		bar_length = self.message_length - columns_used
+
+		arrow='-'*int(percent/100*bar_length-1)+'>'
+		spaces=' '*(bar_length-len(arrow))
+
+		str_2 = f" [{arrow}{spaces}]"
+
+		message = str_0 + str_1 + str_2 + str_3 + str_4 + str_5 + str_6
+
+		sys.stdout.write(message)
 		sys.stdout.flush()
 
 #Custom iterator for progress bar
