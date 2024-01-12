@@ -57,7 +57,7 @@ parser.add_argument(
 parser.add_argument(
 	'-v', '--verbose',
 	help = 'Optional status printing',
-	action='store_false',
+	action='store_true',
 	)
 
 parser.add_argument(

@@ -36,7 +36,7 @@ parser.add_argument(
 parser.add_argument(
 	'-v', '--verbose',
 	help = 'Optional status printing',
-	action='store_false',
+	action='store_true',
 	)
 
 parser.add_argument(
@@ -83,6 +83,8 @@ if __name__ == "__main__":
 			route['depot'] = case['information']['depot']
 
 		final_routes.extend(routes)
+
+		#REMOVING routes?
 
 	#Writing to file
 	CondPrint('\n\nWriting to file\n', args['verbose'])

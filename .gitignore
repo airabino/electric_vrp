@@ -1,6 +1,7 @@
 #Data file structure
 # Data/
-vertices.json
+atlas.json
+graph.json
 routes.json
 
 #Keys file

@@ -247,6 +247,92 @@ def produce_routing_inputs(graph, parameters, **kwargs):
 	# Assigning depots by Voronoi cells unless otherwise specified
 	depot_nodes = parameters['depot_nodes']
 	voronoi_weight = parameters['voronoi_weight']
+	visited_field = parameters.get('visited_field', 'visited')
+	visited_field_value = parameters.get('visited_field_value', 1)
+
+	if 'not_visited' in kwargs.keys():
+
+		not_visited = kwargs['not_visited']
+
+	else:
+
+		not_visited = (
+			[node for node, info in graph._node.items() if \
+			info[visited_field] != visited_field_value])
+
+	graph = subgraph(graph, not_visited)
+
+	graph = assign_depot(graph, depot_nodes, voronoi_weight = voronoi_weight, **kwargs)
+
+	# Assinging random number to each node for selection
+	seed = parameters['rng_seed']
+
+	graph = assign_rng(graph, seed, **kwargs)
+	
+	# Assinging vehicles to nodes
+	vehicles = parameters['vehicles']
+
+	graph = assign_vehicle(graph, vehicles, **kwargs)
+
+	# Producing subgraphs for routing
+	categories = {
+		'vehicle': list(parameters['vehicles'].keys()),
+		'depot': parameters['depot_nodes'],
+	}
+
+	subgraphs = produce_subgraphs(graph, categories, **kwargs)
+
+	# Producing adjacency matrices for routing
+	route_weights = parameters['route_weights']
+
+	adjacency = produce_adjacency(subgraphs, route_weights, **kwargs)
+
+	# Producing assignments for routing
+	assignments = produce_assignments(subgraphs, **kwargs)
+
+	# Producing bounds
+	route_bounds, leg_bounds, stop_weights = produce_bounds(
+		subgraphs, vehicles, route_weights, **kwargs)
+
+	# Producing case information
+	information = produce_information(subgraphs, vehicles, **kwargs)
+
+	# Combining
+	cases = {}
+
+	for key in subgraphs.keys():
+
+		cases[key]={}
+
+		cases[key]['graph'] = subgraphs[key]
+		cases[key]['adjacency'] = adjacency[key]
+		cases[key]['assignments'] = assignments[key]
+		cases[key]['route_bounds'] = route_bounds[key]
+		cases[key]['leg_bounds'] = leg_bounds[key]
+		cases[key]['stop_weights'] = stop_weights[key]
+		cases[key]['information'] = information[key]
+	
+	return cases
+
+def produce_case_inputs(graph, parameters, **kwargs):
+
+	# Assigning depots by Voronoi cells unless otherwise specified
+	depot_nodes = parameters['depot_nodes']
+	voronoi_weight = parameters['voronoi_weight']
+	visited_field = parameters.get('visited_field', 'visited')
+	visited_field_value = parameters.get('visited_field_value', 1)
+
+	if 'not_visited' in kwargs.keys():
+
+		not_visited = kwargs['not_visited']
+
+	else:
+
+		not_visited = (
+			[node for node, info in graph._node.items() if \
+			info[visited_field] != visited_field_value])
+
+	graph = subgraph(graph, not_visited)
 
 	graph = assign_depot(graph, depot_nodes, voronoi_weight = voronoi_weight, **kwargs)
 

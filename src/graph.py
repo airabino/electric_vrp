@@ -305,6 +305,7 @@ def nlg_from_dataframe(dataframe, node_attributes = {}):
 		node = {
 			'id': source_idx,
 			'status': 0,
+			'visited': 0,
 			}
 
 		for field, fun in node_attributes.items():
@@ -346,6 +347,14 @@ def keep_rows(dataframe, attributes):
 	return dataframe
 
 # Functions for graph operations
+
+def mark_nodes(graph, nodes, field, value, **kwargs):
+
+	for node in nodes:
+
+		graph._node[node][field] = value
+
+	return graph
 
 def subgraph(graph, nodes):
 

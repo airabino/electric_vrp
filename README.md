@@ -28,6 +28,8 @@ Top Level Functions: graph_from_csv.py, graph_from_shapefile.py, add_adjacency.p
 
 Example input and parameters files are in /CEC/
 
+4. In order to remove nddes from routing they should be marekd as visited using mark_visited.py
+
 Top level scripts are:
 
 1. graph_from_csv.py:
@@ -38,11 +40,11 @@ Example(s):
 
 All vertices:
 
-python graph_from_csv.py -i 'CEC/ACL2_Weighted_Sample.csv' 'CEC/DCL2_Weighted_Sample.csv' 'CEC/Depots.csv' -o graph.json -p CEC/parameters_cec_csv.json -v
+python graph_from_csv.py -p CEC/parameters_cec_csv.json -v
 
 Selection by county:
 
-python graph_from_csv.py -i 'CEC/ACL2_Weighted_Sample.csv' 'CEC/DCL2_Weighted_Sample.csv' 'CEC/Depots.csv' -o graph.json -p CEC/parameters_cec_csv.json -v -k County Sacremento 'San Joaquin' Amador Yolo Solano 'El Dorado' 'Contra Costa' Sutter Pacer
+python graph_from_csv.py -p CEC/parameters_cec_csv.json -v -k County Sacremento 'San Joaquin' Amador Yolo Solano 'El Dorado' 'Contra Costa' Sutter Pacer
 
 Call with -h/--help for options.
 
@@ -72,6 +74,22 @@ Solves VRP and produces optimal routes
 
 Example(s):
 
-python compute_routes.py -p CEC/parameters_cec_router -v
+python compute_routes.py -p CEC/parameters_cec_router.json -v
+
+Call with -h/--help for options.
+
+5. mark_visited.py:
+
+Marks nodes as visited - visited nodes will not be included in routing
+
+Example(s):
+
+With nodes via commad line:
+
+python mark_visited.py -g graph.json -n 183850 221160
+
+With nodes in file:
+
+python mark_visited.py -g graph.json -nf example_visited_nodes.json
 
 Call with -h/--help for options.
