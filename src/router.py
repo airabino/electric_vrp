@@ -11,6 +11,7 @@ import networkx as nx
 from copy import deepcopy
 from operator import itemgetter
 from itertools import product as iter_prod
+from scipy.special import factorial
 
 from .utilities import ProgressBar
 from .graph import subgraph
@@ -204,13 +205,59 @@ def assignments(nodes, **kwargs):
 
 	return node_to_idx, idx_to_node
 
+def expected_queuing_time(l = 1 / 600, m = 1 / (45 * 60), c = 1):
+
+	rho = l / (c * m)
+
+	k = np.arange(0, c, 1)
+
+	p_0 = 1 / (
+		((c * rho) ** k / factorial(k)).sum() + (c * rho) ** c / (factorial(c) * (1 - rho))
+	)
+
+	l_q = (p_0 * (l / m) ** c * rho) / (factorial(c) * (1 - rho))
+
+	w_q = l_q / l
+
+	return w_q, l_q, p_0
+
 def produce_bounds(subgraphs, vehicles, weights, **kwargs):
+
+	tt = kwargs.get('tt', 300)
 
 	route_bounds = {}
 	leg_bounds = {}
 	stop_weights = {}
+	delays = {}
 
-	for key, value in subgraphs.items():
+	for key, subgraph in subgraphs.items():
+
+		qt = np.zeros(subgraph.number_of_nodes())
+		idx = 0
+
+		for node_id, node in subgraph._node.items():
+
+			n_ac = np.nanmax([0, node['n_ac']])
+			n_dc = np.nanmax([0, node['n_dc']])
+
+			c = max([1, n_ac + n_dc])
+
+			# print(n_ac, n_dc, c)
+
+			if node['rural']:
+
+				l = 1 / (np.random.rand() * 10800 + 1800)
+
+			else:
+
+				l = 1 / (np.random.rand() * 3600 + 600)
+
+			m = 1 / 2400
+
+			qt[idx] = expected_queuing_time(l, m, c)[0] + tt * c
+			idx += 1
+
+		delays[key] = qt
 
 		vehicle, _ = key
 
@@ -222,9 +269,10 @@ def produce_bounds(subgraphs, vehicles, weights, **kwargs):
 
 			route_bounds[key].append(vehicles[vehicle]["route_bounds"][weight])
 			leg_bounds[key].append(vehicles[vehicle]["leg_bounds"][weight])
-			stop_weights[key].append(vehicles[vehicle]["stop_weights"][weight])
+			# stop_weights[key].append(vehicles[vehicle]["stop_weights"][weight])
+			stop_weights[key].append(0)
 
-	return route_bounds, leg_bounds, stop_weights
+	return route_bounds, leg_bounds, stop_weights, delays
 
 def produce_information(subgraphs, vehicles, **kwargs):
 
@@ -291,7 +339,7 @@ def produce_routing_inputs(graph, parameters, **kwargs):
 	assignments = produce_assignments(subgraphs, **kwargs)
 
 	# Producing bounds
-	route_bounds, leg_bounds, stop_weights = produce_bounds(
+	route_bounds, leg_bounds, stop_weights, delays = produce_bounds(
 		subgraphs, vehicles, route_weights, **kwargs)
 
 	# Producing case information
@@ -310,6 +358,7 @@ def produce_routing_inputs(graph, parameters, **kwargs):
 		cases[key]['route_bounds'] = route_bounds[key]
 		cases[key]['leg_bounds'] = leg_bounds[key]
 		cases[key]['stop_weights'] = stop_weights[key]
+		cases[key]['delays'] = delays[key]
 		cases[key]['information'] = information[key]
 	
 	return cases
@@ -393,13 +442,16 @@ def router(case, **kwargs):
 
 	depot_index = case['assignments']['node_to_idx'][case['information']['depot']]
 
-	routes, success = clarke_wright(
+	routes, route_weights, success = clarke_wright(
 		case['adjacency'],
 		depot_index,
 		case['route_bounds'],
 		case['leg_bounds'],
 		case['stop_weights'],
+		delays = case['delays'],
 		)
+
+	# print(routes)
 
 	# Removing depot - depot - depot route
 	try:
@@ -410,27 +462,27 @@ def router(case, **kwargs):
 
 		pass
 	
-	# Annealing between routes
-	routes = anneal_routes(
-		case['adjacency'],
-		routes,
-		case['route_bounds'],
-		case['leg_bounds'],
-		case['stop_weights'],
-		steps = kwargs['steps_routes'],
-		)
+	# # Annealing between routes
+	# routes = anneal_routes(
+	# 	case['adjacency'],
+	# 	routes,
+	# 	case['route_bounds'],
+	# 	case['leg_bounds'],
+	# 	case['stop_weights'],
+	# 	steps = kwargs['steps_routes'],
+	# 	)
 	
-	# Annealing within routes
-	for route in routes:
+	# # Annealing within routes
+	# for route in routes:
 
-		route = anneal_route(
-			case['adjacency'],
-			route,
-			case['route_bounds'],
-			case['leg_bounds'],
-			case['stop_weights'],
-			steps = kwargs['steps_route'],
-			)
+	# 	route = anneal_route(
+	# 		case['adjacency'],
+	# 		route,
+	# 		case['route_bounds'],
+	# 		case['leg_bounds'],
+	# 		case['stop_weights'],
+	# 		steps = kwargs['steps_route'],
+	# 		)
 
 	# Adding routes to unreached destinations
 	reached = []
@@ -441,9 +493,9 @@ def router(case, **kwargs):
 	possible_destinations.remove(depot_index)
 	not_reached = np.array(possible_destinations)[~np.isin(possible_destinations, reached)]
 
-	for destination in not_reached:
+	# for destination in not_reached:
 
-		routes.append([depot_index, destination, depot_index])
+	# 	routes.append([depot_index, destination, depot_index])
 
 	# Converting routes from indices to nodes
 	for idx, route in enumerate(routes):
@@ -452,11 +504,11 @@ def router(case, **kwargs):
 
 	if not np.isinf(case['information']['fleet_size']):
 
-		route_lenghts = [len(route) for route in routes]
-		keep_indices = np.argsort(route_lenghts)[-case['information']['fleet_size']:]
+		route_lengths = [len(route) for route in routes]
+		keep_indices = np.argsort(route_lengths)[-case['information']['fleet_size']:]
 		routes = [routes[idx] for idx in keep_indices]
 
-	return routes, success
+	return routes, route_weights, success
 
 def route_information(graph, raw_routes, fields):
 

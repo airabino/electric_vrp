@@ -27,6 +27,9 @@
 		"x":"lambda r: r['Longitude']",
 		"y":"lambda r: r['Latitude']",
 		"dcfc":"lambda r: r['DCFC']",
-		"ev_network_clean":"lambda r: r['EV Network Clean']"
+		"ev_network_clean":"lambda r: r['EV Network Clean']",
+		"n_ac":"lambda r: r['EV Level2 EVSE Num']",
+		"n_dc":"lambda r: r['EV DC Fast Count']",
+		"rural":"lambda r: r['rural']"
 	}
 }

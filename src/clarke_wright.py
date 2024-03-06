@@ -100,7 +100,7 @@ def find_routes(routes, node_0, node_1):
 
 	return first_route_index, second_route_index
 
-def evaluate_route(adjacency, route, route_bounds, leg_bounds, stop_weights):
+def evaluate_route(adjacency, route, route_bounds, leg_bounds, stop_weights, delays):
 
 	n = len(adjacency)
 
@@ -119,7 +119,12 @@ def evaluate_route(adjacency, route, route_bounds, leg_bounds, stop_weights):
 
 				leg_weight = adjacency[idx_adj][from_indices[idx_leg], to_indices[idx_leg]]
 
-				weights[idx_adj] += leg_weight + stop_weights[idx_adj]
+				# weights[idx_adj] += leg_weight + stop_weights[idx_adj]
+				# print(idx_adj, to_indices[idx_leg])
+
+				weights[idx_adj] += (
+					leg_weight + stop_weights[idx_adj] * 0 + delays[to_indices[idx_leg]]
+					)
 
 				validity[idx_adj] *= leg_weight >= leg_bounds[idx_adj][0]
 				validity[idx_adj] *= leg_weight <= leg_bounds[idx_adj][1]
@@ -147,7 +152,10 @@ def evaluate_route(adjacency, route, route_bounds, leg_bounds, stop_weights):
 
 				leg_weight = adjacency[idx_adj][from_indices[idx_leg], to_indices[idx_leg]]
 
-				weights[idx_adj] += leg_weight + stop_weights[idx_adj]
+				# weights[idx_adj] += leg_weight + stop_weights[idx_adj]
+				weights[idx_adj] += (
+					leg_weight + stop_weights[idx_adj] * 0 + delays[to_indices[idx_leg]]
+					)
 
 				validity[idx_adj] *= leg_weight >= leg_bounds[idx_adj][0]
 				validity[idx_adj] *= leg_weight <= leg_bounds[idx_adj][1]
@@ -171,6 +179,9 @@ def clarke_wright(adjacency, depot_index, route_bounds, leg_bounds, stop_weights
 	'''
 	
 	kwargs.setdefault('max_iterations', 100000)
+	delays = kwargs.get('delays', np.zeros(len(adjacency)))
+
+	# print(delays)
 	
 	#Computing savings matrices for all adjacency matrices and all depots
 	savings = []
@@ -254,8 +265,15 @@ def clarke_wright(adjacency, depot_index, route_bounds, leg_bounds, stop_weights
 				tentative_route,
 				route_bounds,
 				leg_bounds,
-				stop_weights
+				stop_weights,
+				delays,
 				)
+
+			# print(
+			# 	tentative_route_weights,
+			# 	route_weights[first_route_index],
+			# 	route_weights[second_route_index],
+			# 	)
 
 			# Checking if the merged route represents savings over the individual routes
 			improvement = tentative_route_weights[0] <= (
@@ -280,4 +298,4 @@ def clarke_wright(adjacency, depot_index, route_bounds, leg_bounds, stop_weights
 		savings[0][best_savings_link[0], best_savings_link[1]] = 0
 		savings[0][best_savings_link[1], best_savings_link[0]] = 0
 
-	return routes, success
+	return routes, route_weights, success

@@ -70,13 +70,16 @@ def PlotRoutes(graph,routes,figsize=(8,8),ax=None,cmap=ReturnColorMap('viridis')
 		fig,ax=plt.subplots(figsize=figsize)
 		return_fig=True
 
-	route_depot=np.zeros(len(graph._node))
+	route_depot=np.zeros(len(graph.nodes))
 
-	for route in routes:
-		for destination in route[:-1]:
-			route_depot[destination]=route[0]
+	# k = 0
+	# for route in routes:
+	# 	for destination in route[1:-1]:
+	# 		# print(destination)
+	# 		route_depot[destination]=k
+	# 	k+=1
 
-	graph=AddVertexField(graph,'route_depot',route_depot)
+	# graph=AddVertexField(graph,'route_depot',route_depot)
 
 	PlotGraph(graph,ax=ax,field='route_depot',cmap=cmap,
 					  scatter_kwargs=destination_kwargs)
@@ -84,8 +87,8 @@ def PlotRoutes(graph,routes,figsize=(8,8),ax=None,cmap=ReturnColorMap('viridis')
 	depot_cmap=ReturnColorMap(['none','k'])
 	depot_kwargs['ec']=depot_cmap([node['is_depot'] for node in graph._node.values()])
 
-	cmap=ReturnColorMap(['none','whitesmoke'])
-	PlotGraph(graph,ax=ax,field='is_depot',cmap=cmap,
+	# cmap=ReturnColorMap(['none','k'])
+	PlotGraph(graph,ax=ax,field='is_depot',cmap=depot_cmap,
 					  scatter_kwargs=depot_kwargs)
 
 	PlotRoute(graph,routes,ax=ax,arrow_kwargs=arrow_kwargs)
@@ -109,9 +112,14 @@ def PlotGraph(graph,figsize=(8,8),ax=None,cmap=ReturnColorMap('viridis'),field=N
 	if field is None:
 		values=None
 	else:
-		values=np.array([v[field] for v in graph._node.values()])
+		values=np.array([v[field] for v in graph._node.values()]) * .9999
+	print(np.unique(values, return_counts = True))
 
-	ax.scatter(coords[:,0],coords[:,1],c=values,cmap=cmap,**scatter_kwargs)
+	val0 = values < 2/3
+
+	ax.scatter(coords[val0,0],coords[val0,1],c=values[val0],cmap=cmap,**scatter_kwargs)
+
+	# ax.scatter(coords[:,0],coords[:,1],c=values,cmap=cmap,**scatter_kwargs)
 
 	if line_kwargs:
 		for v in graph._adj.values():

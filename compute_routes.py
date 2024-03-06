@@ -71,18 +71,24 @@ if __name__ == "__main__":
 	final_routes = []
 	for key in ProgressBar(list(cases.keys()), end_color = ''):
 
-		case = cases[key]
+		try:
 
-		raw_routes, success = src.router.router(case)
+			case = cases[key]
 
-		routes = src.router.route_information(graph, raw_routes, parameters['route_fields'])
+			raw_routes, success = src.router.router(case)
 
-		for route in routes:
+			routes = src.router.route_information(graph, raw_routes, parameters['route_fields'])
 
-			route['vehicle'] = case['information']['vehicle']
-			route['depot'] = case['information']['depot']
+			for route in routes:
 
-		final_routes.extend(routes)
+				route['vehicle'] = case['information']['vehicle']
+				route['depot'] = case['information']['depot']
+
+			final_routes.extend(routes)
+
+		except:
+
+			pass
 
 		#REMOVING routes?
 
