@@ -12,7 +12,7 @@ from heapq import heappop, heappush
 from itertools import count
 from sys import float_info
 
-def dijkstra(graph, sources, targets = [], weights = {},return_paths = False):
+def dijkstra(graph, sources, targets = [], weights = {}, return_paths = False):
     """Uses Dijkstra's algorithm to find shortest weighted paths
 
     Code is based on (is an edited version of):
@@ -55,9 +55,11 @@ def dijkstra(graph, sources, targets = [], weights = {},return_paths = False):
         path between the origin node and other nodes. If return_paths == False
         then None will be returned.
     """
+    
+    null_value = {w: 0. for w in weights}
 
     if return_paths:
-        paths = {source: [source] for source in sources}
+        paths = {source: {'source': source, 'value': null_value} for source in sources}
     else:
         paths = None
 
@@ -86,6 +88,8 @@ def dijkstra(graph, sources, targets = [], weights = {},return_paths = False):
 
     c = count()
     fringe = []
+
+    # print(sources)
 
     for source in sources:
 
@@ -144,6 +148,8 @@ def dijkstra(graph, sources, targets = [], weights = {},return_paths = False):
 
                 if paths is not None:
 
-                    paths[u] = paths[v] + [u]
+                    value = {w: vu_dist[idx] for idx, w in enumerate(weights)}
+
+                    paths[u] = {'source': paths[v]['source'], 'value': value}
 
     return dist, paths

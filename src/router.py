@@ -15,522 +15,546 @@ from scipy.special import factorial
 
 from .utilities import ProgressBar
 from .graph import subgraph
+from .dijkstra import dijkstra
 from .clarke_wright  import *
 from .simulated_annealing import *
 
+def add_depot_legs(graph, depots, objectives):
+
+    _, depot_paths = dijkstra(
+        graph,
+        depots,
+        weights = {key: np.inf for key in objectives.keys()},
+        return_paths = True
+    )
+
+    for key, value in depot_paths.items():
+
+        graph._node[key]['depot'] = value['source']
+        graph._node[key]['depot_leg'] = value['value']
+
+    return graph
+
 def voronoi_cells(graph, center_nodes, nodes = None, weight = None, **kwargs):
-	'''
-	assign nodes to reference nodes by proximity
-	'''
+    '''
+    assign nodes to reference nodes by proximity
+    '''
 
-	voronoi_cells = nx.voronoi_cells(graph, center_nodes, weight = weight)
+    voronoi_cells = nx.voronoi_cells(graph, center_nodes, weight = weight)
 
-	for key in voronoi_cells.keys():
+    for key in voronoi_cells.keys():
 
-		if nodes is not None:
+        if nodes is not None:
 
-			voronoi_cells[key] = np.intersect1d(list(voronoi_cells[key]), nodes)
+            voronoi_cells[key] = np.intersect1d(list(voronoi_cells[key]), nodes)
 
-		else:
+        else:
 
-			voronoi_cells[key] = np.array(list(voronoi_cells[key]))
+            voronoi_cells[key] = np.array(list(voronoi_cells[key]))
 
-	return voronoi_cells
+    return voronoi_cells
 
 def assign_depot(graph, depot_nodes, nodes = None, weight = None, **kwargs):
-	'''
-	Assign nodes to depots using weighted Voronoi cells 
-	'''
-	kwargs.setdefault('field', 'depot')
-	kwargs.setdefault('overwrite_depots', True)
+    '''
+    Assign nodes to depots using weighted Voronoi cells 
+    '''
+    kwargs.setdefault('field', 'depot')
+    kwargs.setdefault('overwrite_depots', True)
 
-	field = kwargs['field']
+    field = kwargs['field']
 
-	vc = voronoi_cells(graph, depot_nodes, nodes = nodes, weight = weight)
+    vc = voronoi_cells(graph, depot_nodes, nodes = nodes, weight = weight)
 
-	for depot in depot_nodes:
+    for depot in depot_nodes:
 
-		for node in vc[depot]:
+        for node in vc[depot]:
 
-			if kwargs['overwrite_depots'] or (field not in graph._node[node].keys()):
+            if kwargs['overwrite_depots'] or (field not in graph._node[node].keys()):
 
-				graph._node[node][field] = depot
+                graph._node[node][field] = depot
 
-	for node in graph.nodes:
+    for node in graph.nodes:
 
-		if field not in graph._node[node].keys():
+        if field not in graph._node[node].keys():
 
-			graph._node[node][field] = ''
+            graph._node[node][field] = ''
 
-	return graph
+    return graph
 
 def assign_rng(graph, seed = None, field = 'rng', **kwargs):
-	'''
-	Assign a random number to each node
-	'''
+    '''
+    Assign a random number to each node
+    '''
 
-	rng  = np.random.default_rng(seed)
+    rng  = np.random.default_rng(seed)
 
-	for node in graph.nodes:
-		graph._node[node][field] = rng.random()
+    for node in graph.nodes:
+        graph._node[node][field] = rng.random()
 
-	return graph
+    return graph
 
 def assign_vehicle(graph, vehicles, field = 'vehicle', **kwargs):
-	'''
-	Assigns vehicles based on vehicle node_criteria functions
-	'''
+    '''
+    Assigns vehicles based on vehicle node_criteria functions
+    '''
 
-	for node in graph.nodes:
+    for node in graph.nodes:
 
-		graph._node[node][field] = []
+        graph._node[node][field] = []
 
-	for vehicle, vehicle_information in vehicles.items():
+    for vehicle, vehicle_information in vehicles.items():
 
-		for key, fun in vehicle_information['node_criteria'].items():
+        for key, fun in vehicle_information['node_criteria'].items():
 
-			if type(fun) is str:
+            if type(fun) is str:
 
-				vehicles[vehicle]['node_criteria'][key] = eval(fun)
-	
-	for vehicle, vehicle_information in vehicles.items():
+                vehicles[vehicle]['node_criteria'][key] = eval(fun)
+    
+    for vehicle, vehicle_information in vehicles.items():
 
-		for node in graph.nodes:
+        for node in graph.nodes:
 
-			meets_criteria = True
+            meets_criteria = True
 
-			try:
+            # try:
 
-				for key, fun in vehicle_information['node_criteria'].items():
+            for key, fun in vehicle_information['node_criteria'].items():
+                # print(meets_criteria)
 
-					meets_criteria *= fun(graph._node[node])
+                meets_criteria *= fun(graph._node[node])
 
-			except:
+            # except:
 
-				meets_criteria = False
+            #     meets_criteria = False
 
-			if meets_criteria:
+            if meets_criteria:
+                # print('a')
 
-				graph._node[node][field].append(vehicle)
+                graph._node[node][field].append(vehicle)
 
-	return graph
+    return graph
 
 def produce_subgraphs(graph, categories, **kwargs):
 
-	subgraphs = {}
+    subgraphs = {}
 
-	combinations = list(iter_prod(*[v for v in categories.values()]))
+    combinations = list(iter_prod(*[v for v in categories.values()]))
 
-	# print(combinations)
+    # print(combinations)
 
-	for combination in combinations:
+    for combination in combinations:
 
-		nodelist = []
+        nodelist = []
 
-		for node in graph.nodes:
+        for node in graph.nodes:
 
-			include = True
+            include = True
 
-			for idx, field in enumerate(categories.keys()):
+            for idx, field in enumerate(categories.keys()):
 
-				val = graph._node[node][field]
+                val = graph._node[node][field]
 
-				if hasattr(val, '__iter__'):
+                if hasattr(val, '__iter__'):
 
-					if len(val) == 0:
+                    if len(val) == 0:
 
-						include = False
+                        include = False
 
-					else:
+                    else:
 
-						include *= combination[idx] in graph._node[node][field]
+                        include *= combination[idx] in graph._node[node][field]
 
-				else:
+                else:
 
-					include *= graph._node[node][field] == combination[idx]
+                    include *= graph._node[node][field] == combination[idx]
 
-			if include:
+            if include:
 
-				nodelist.append(node)
+                nodelist.append(node)
 
-		subgraphs[combination] = subgraph(graph, nodelist)
+        subgraphs[combination] = subgraph(graph, nodelist)
 
-	return subgraphs
+    return subgraphs
 
 def produce_adjacency(subgraphs, weights = [], **kwargs):
 
-	adjacency = {}
+    adjacency = {}
 
-	for key, value in subgraphs.items():
+    for key, value in subgraphs.items():
 
-		adjacency[key] = adjacency_matrices(value, weights = weights)
+        adjacency[key] = adjacency_matrices(value, weights = weights)
 
-	return adjacency
+    return adjacency
 
 def adjacency_matrices(graph, nodelist = None, weights = [], **kwargs):
-	'''
-	Produces list of adjacency matrices for each weight in weights
-	'''
-	adjacency = []
+    '''
+    Produces list of adjacency matrices for each weight in weights
+    '''
+    adjacency = []
 
-	for weight in weights:
+    for weight in weights:
 
-		adjacency.append(nx.to_numpy_array(
-			graph,
-			nodelist = nodelist,
-			weight = weight,
-			nonedge = np.inf,
-			))
+        adjacency.append(nx.to_numpy_array(
+            graph,
+            nodelist = nodelist,
+            weight = weight,
+            nonedge = np.inf,
+            ))
 
-	return adjacency
+    return adjacency
 
 def produce_assignments(subgraphs, **kwargs):
 
-	subgraph_assignments = {}
+    subgraph_assignments = {}
 
-	for key, value in subgraphs.items():
+    for key, value in subgraphs.items():
 
-		node_to_idx, idx_to_node = assignments(list(value.nodes))
+        node_to_idx, idx_to_node = assignments(list(value.nodes))
 
-		subgraph_assignments[key] = {}
-		subgraph_assignments[key]['node_to_idx'] = node_to_idx
-		subgraph_assignments[key]['idx_to_node'] = idx_to_node
+        subgraph_assignments[key] = {}
+        subgraph_assignments[key]['node_to_idx'] = node_to_idx
+        subgraph_assignments[key]['idx_to_node'] = idx_to_node
 
-	return subgraph_assignments
+    return subgraph_assignments
 
 def assignments(nodes, **kwargs):
 
-	node_to_idx = {nodes[idx]: idx for idx in range(len(nodes))}
-	idx_to_node = {val: key for key, val in node_to_idx.items()}
+    node_to_idx = {nodes[idx]: idx for idx in range(len(nodes))}
+    idx_to_node = {val: key for key, val in node_to_idx.items()}
 
-	return node_to_idx, idx_to_node
+    return node_to_idx, idx_to_node
 
 def expected_queuing_time(l = 1 / 600, m = 1 / (45 * 60), c = 1):
 
-	rho = l / (c * m)
+    rho = l / (c * m)
 
-	k = np.arange(0, c, 1)
+    k = np.arange(0, c, 1)
 
-	p_0 = 1 / (
-		((c * rho) ** k / factorial(k)).sum() + (c * rho) ** c / (factorial(c) * (1 - rho))
-	)
+    # print(sum([(c * rho) ** k / factorial(k) for k in k]))
 
-	l_q = (p_0 * (l / m) ** c * rho) / (factorial(c) * (1 - rho))
+    # print((c * rho) ** k, factorial(k).sum())
 
-	w_q = l_q / l
+    p_0 = 1 / (
+        sum([(c * rho) ** k / factorial(k) for k in k]) +
+        (c * rho) ** c / (factorial(c) * (1 - rho))
+    )
 
-	return w_q, l_q, p_0
+    l_q = (p_0 * (l / m) ** c * rho) / (factorial(c) * (1 - rho))
+
+    w_q = l_q / l
+
+    return w_q
 
 def produce_bounds(subgraphs, vehicles, weights, **kwargs):
 
-	tt = kwargs.get('tt', 300)
+    tt = kwargs.get('tt', 300)
 
-	route_bounds = {}
-	leg_bounds = {}
-	stop_weights = {}
-	delays = {}
+    route_bounds = {}
+    leg_bounds = {}
+    stop_weights = {}
+    delays = {}
 
-	for key, subgraph in subgraphs.items():
+    for key, subgraph in subgraphs.items():
 
-		qt = np.zeros(subgraph.number_of_nodes())
-		idx = 0
+        qt = np.zeros(subgraph.number_of_nodes())
+        idx = 0
 
-		for node_id, node in subgraph._node.items():
+        for node_id, node in subgraph._node.items():
 
-			n_ac = np.nanmax([0, node['n_ac']])
-			n_dc = np.nanmax([0, node['n_dc']])
+            n_ac = np.nanmax([0, node['n_ac']])
+            n_dc = np.nanmax([0, node['n_dc']])
 
-			c = max([1, n_ac + n_dc])
+            c = max([1, n_ac + n_dc])
 
-			# print(n_ac, n_dc, c)
+            # print(n_ac, n_dc, c)
 
-			if node['rural']:
+            if node['rural']:
 
-				l = 1 / (np.random.rand() * 10800 + 1800)
+                l = 1 / (np.random.rand() * 10800 + 1800)
 
-			else:
+            else:
 
-				l = 1 / (np.random.rand() * 3600 + 600)
+                l = 1 / (np.random.rand() * 3600 + 600)
 
-			m = 1 / 2400
+            m = 1 / 2400
 
-			qt[idx] = expected_queuing_time(l, m, c)[0] + tt * c
-			idx += 1
+            qt[idx] = expected_queuing_time(l, m, c)[0] + tt * c
+            idx += 1
 
-		delays[key] = qt
+        delays[key] = qt
 
-		vehicle, _ = key
+        vehicle, _ = key
 
-		route_bounds[key] = []
-		leg_bounds[key] = []
-		stop_weights[key] = []
+        route_bounds[key] = []
+        leg_bounds[key] = []
+        stop_weights[key] = []
 
-		for weight in weights:
+        for weight in weights:
 
-			route_bounds[key].append(vehicles[vehicle]["route_bounds"][weight])
-			leg_bounds[key].append(vehicles[vehicle]["leg_bounds"][weight])
-			# stop_weights[key].append(vehicles[vehicle]["stop_weights"][weight])
-			stop_weights[key].append(0)
+            route_bounds[key].append(vehicles[vehicle]["route_bounds"][weight])
+            leg_bounds[key].append(vehicles[vehicle]["leg_bounds"][weight])
+            # stop_weights[key].append(vehicles[vehicle]["stop_weights"][weight])
+            stop_weights[key].append(0)
 
-	return route_bounds, leg_bounds, stop_weights, delays
+    return route_bounds, leg_bounds, stop_weights, delays
 
 def produce_information(subgraphs, vehicles, **kwargs):
 
-	information = {}
+    information = {}
 
-	for key, value in subgraphs.items():
+    for key, value in subgraphs.items():
 
-		vehicle, depot = key
+        vehicle, depot = key
 
-		information[key] = {}
+        information[key] = {}
 
-		information[key]['vehicle'] = vehicle
-		information[key]['depot'] = depot
-		information[key]['fleet_size'] = vehicles[vehicle]['fleet_size']
+        information[key]['vehicle'] = vehicle
+        information[key]['depot'] = depot
+        information[key]['fleet_size'] = vehicles[vehicle]['fleet_size']
 
-	return information
+    return information
 
 def produce_routing_inputs(graph, parameters, **kwargs):
 
-	# Assigning depots by Voronoi cells unless otherwise specified
-	depot_nodes = parameters['depot_nodes']
-	voronoi_weight = parameters['voronoi_weight']
-	visited_field = parameters.get('visited_field', 'visited')
-	visited_field_value = parameters.get('visited_field_value', 1)
+    # Assigning depots by Voronoi cells unless otherwise specified
+    depot_nodes = parameters['depot_nodes']
+    voronoi_weight = parameters['voronoi_weight']
+    visited_field = parameters.get('visited_field', 'visited')
+    visited_field_value = parameters.get('visited_field_value', 1)
 
-	if 'not_visited' in kwargs.keys():
+    if 'not_visited' in kwargs.keys():
 
-		not_visited = kwargs['not_visited']
+        not_visited = kwargs['not_visited']
 
-	else:
+    else:
 
-		not_visited = (
-			[node for node, info in graph._node.items() if \
-			info[visited_field] != visited_field_value])
+        not_visited = (
+            [node for node, info in graph._node.items() if \
+            info[visited_field] != visited_field_value])
 
-	graph = subgraph(graph, not_visited)
+    graph = subgraph(graph, not_visited)
 
-	graph = assign_depot(graph, depot_nodes, voronoi_weight = voronoi_weight, **kwargs)
+    graph = assign_depot(graph, depot_nodes, voronoi_weight = voronoi_weight, **kwargs)
 
-	# Assinging random number to each node for selection
-	seed = parameters['rng_seed']
+    # Assinging random number to each node for selection
+    seed = parameters['rng_seed']
 
-	graph = assign_rng(graph, seed, **kwargs)
-	
-	# Assinging vehicles to nodes
-	vehicles = parameters['vehicles']
+    graph = assign_rng(graph, seed, **kwargs)
+    
+    # Assinging vehicles to nodes
+    vehicles = parameters['vehicles']
 
-	graph = assign_vehicle(graph, vehicles, **kwargs)
+    graph = assign_vehicle(graph, vehicles, **kwargs)
 
-	# Producing subgraphs for routing
-	categories = {
-		'vehicle': list(parameters['vehicles'].keys()),
-		'depot': parameters['depot_nodes'],
-	}
+    # Producing subgraphs for routing
+    categories = {
+        'vehicle': list(parameters['vehicles'].keys()),
+        'depot': parameters['depot_nodes'],
+    }
 
-	subgraphs = produce_subgraphs(graph, categories, **kwargs)
+    subgraphs = produce_subgraphs(graph, categories, **kwargs)
 
-	# Producing adjacency matrices for routing
-	route_weights = parameters['route_weights']
+    # Producing adjacency matrices for routing
+    route_weights = parameters['route_weights']
 
-	adjacency = produce_adjacency(subgraphs, route_weights, **kwargs)
+    adjacency = produce_adjacency(subgraphs, route_weights, **kwargs)
 
-	# Producing assignments for routing
-	assignments = produce_assignments(subgraphs, **kwargs)
+    # Producing assignments for routing
+    assignments = produce_assignments(subgraphs, **kwargs)
 
-	# Producing bounds
-	route_bounds, leg_bounds, stop_weights, delays = produce_bounds(
-		subgraphs, vehicles, route_weights, **kwargs)
+    # Producing bounds
+    route_bounds, leg_bounds, stop_weights, delays = produce_bounds(
+        subgraphs, vehicles, route_weights, **kwargs)
 
-	# Producing case information
-	information = produce_information(subgraphs, vehicles, **kwargs)
+    # Producing case information
+    information = produce_information(subgraphs, vehicles, **kwargs)
 
-	# Combining
-	cases = {}
+    # Combining
+    cases = {}
 
-	for key in subgraphs.keys():
+    for key in subgraphs.keys():
 
-		cases[key]={}
+        cases[key]={}
 
-		cases[key]['graph'] = subgraphs[key]
-		cases[key]['adjacency'] = adjacency[key]
-		cases[key]['assignments'] = assignments[key]
-		cases[key]['route_bounds'] = route_bounds[key]
-		cases[key]['leg_bounds'] = leg_bounds[key]
-		cases[key]['stop_weights'] = stop_weights[key]
-		cases[key]['delays'] = delays[key]
-		cases[key]['information'] = information[key]
-	
-	return cases
+        cases[key]['graph'] = subgraphs[key]
+        cases[key]['adjacency'] = adjacency[key]
+        cases[key]['assignments'] = assignments[key]
+        cases[key]['route_bounds'] = route_bounds[key]
+        cases[key]['leg_bounds'] = leg_bounds[key]
+        cases[key]['stop_weights'] = stop_weights[key]
+        cases[key]['delays'] = delays[key]
+        cases[key]['information'] = information[key]
+    
+    return cases
 
 def produce_case_inputs(graph, parameters, **kwargs):
 
-	# Assigning depots by Voronoi cells unless otherwise specified
-	depot_nodes = parameters['depot_nodes']
-	voronoi_weight = parameters['voronoi_weight']
-	visited_field = parameters.get('visited_field', 'visited')
-	visited_field_value = parameters.get('visited_field_value', 1)
+    # Assigning depots by Voronoi cells unless otherwise specified
+    depot_nodes = parameters['depot_nodes']
+    voronoi_weight = parameters['voronoi_weight']
+    visited_field = parameters.get('visited_field', 'visited')
+    visited_field_value = parameters.get('visited_field_value', 1)
 
-	if 'not_visited' in kwargs.keys():
+    if 'not_visited' in kwargs.keys():
 
-		not_visited = kwargs['not_visited']
+        not_visited = kwargs['not_visited']
 
-	else:
+    else:
 
-		not_visited = (
-			[node for node, info in graph._node.items() if \
-			info[visited_field] != visited_field_value])
+        not_visited = (
+            [node for node, info in graph._node.items() if \
+            info[visited_field] != visited_field_value])
 
-	graph = subgraph(graph, not_visited)
+    graph = subgraph(graph, not_visited)
 
-	graph = assign_depot(graph, depot_nodes, voronoi_weight = voronoi_weight, **kwargs)
+    graph = assign_depot(graph, depot_nodes, voronoi_weight = voronoi_weight, **kwargs)
 
-	# Assinging random number to each node for selection
-	seed = parameters['rng_seed']
+    # Assinging random number to each node for selection
+    seed = parameters['rng_seed']
 
-	graph = assign_rng(graph, seed, **kwargs)
-	
-	# Assinging vehicles to nodes
-	vehicles = parameters['vehicles']
+    graph = assign_rng(graph, seed, **kwargs)
+    
+    # Assinging vehicles to nodes
+    vehicles = parameters['vehicles']
 
-	graph = assign_vehicle(graph, vehicles, **kwargs)
+    graph = assign_vehicle(graph, vehicles, **kwargs)
 
-	# Producing subgraphs for routing
-	categories = {
-		'vehicle': list(parameters['vehicles'].keys()),
-		'depot': parameters['depot_nodes'],
-	}
+    # Producing subgraphs for routing
+    categories = {
+        'vehicle': list(parameters['vehicles'].keys()),
+        'depot': parameters['depot_nodes'],
+    }
 
-	subgraphs = produce_subgraphs(graph, categories, **kwargs)
+    subgraphs = produce_subgraphs(graph, categories, **kwargs)
 
-	# Producing adjacency matrices for routing
-	route_weights = parameters['route_weights']
+    # Producing adjacency matrices for routing
+    route_weights = parameters['route_weights']
 
-	adjacency = produce_adjacency(subgraphs, route_weights, **kwargs)
+    adjacency = produce_adjacency(subgraphs, route_weights, **kwargs)
 
-	# Producing assignments for routing
-	assignments = produce_assignments(subgraphs, **kwargs)
+    # Producing assignments for routing
+    assignments = produce_assignments(subgraphs, **kwargs)
 
-	# Producing bounds
-	route_bounds, leg_bounds, stop_weights = produce_bounds(
-		subgraphs, vehicles, route_weights, **kwargs)
+    # Producing bounds
+    route_bounds, leg_bounds, stop_weights = produce_bounds(
+        subgraphs, vehicles, route_weights, **kwargs)
 
-	# Producing case information
-	information = produce_information(subgraphs, vehicles, **kwargs)
+    # Producing case information
+    information = produce_information(subgraphs, vehicles, **kwargs)
 
-	# Combining
-	cases = {}
+    # Combining
+    cases = {}
 
-	for key in subgraphs.keys():
+    for key in subgraphs.keys():
 
-		cases[key]={}
+        cases[key]={}
 
-		cases[key]['graph'] = subgraphs[key]
-		cases[key]['adjacency'] = adjacency[key]
-		cases[key]['assignments'] = assignments[key]
-		cases[key]['route_bounds'] = route_bounds[key]
-		cases[key]['leg_bounds'] = leg_bounds[key]
-		cases[key]['stop_weights'] = stop_weights[key]
-		cases[key]['information'] = information[key]
-	
-	return cases
+        cases[key]['graph'] = subgraphs[key]
+        cases[key]['adjacency'] = adjacency[key]
+        cases[key]['assignments'] = assignments[key]
+        cases[key]['route_bounds'] = route_bounds[key]
+        cases[key]['leg_bounds'] = leg_bounds[key]
+        cases[key]['stop_weights'] = stop_weights[key]
+        cases[key]['information'] = information[key]
+    
+    return cases
 
 def router(case, **kwargs):
 
-	kwargs.setdefault('steps_routes', 1000)
-	kwargs.setdefault('steps_route', 100)
+    kwargs.setdefault('steps_routes', 1000)
+    kwargs.setdefault('steps_route', 100)
 
-	depot_index = case['assignments']['node_to_idx'][case['information']['depot']]
+    depot_index = case['assignments']['node_to_idx'][case['information']['depot']]
 
-	routes, route_weights, success = clarke_wright(
-		case['adjacency'],
-		depot_index,
-		case['route_bounds'],
-		case['leg_bounds'],
-		case['stop_weights'],
-		delays = case['delays'],
-		)
+    routes, route_weights, success = clarke_wright(
+        case['adjacency'],
+        depot_index,
+        case['route_bounds'],
+        case['leg_bounds'],
+        case['stop_weights'],
+        delays = case['delays'],
+        )
 
-	# print(routes)
+    # print(routes)
 
-	# Removing depot - depot - depot route
-	try:
+    # Removing depot - depot - depot route
+    try:
 
-		routes.remove([depot_index, depot_index, depot_index])
+        routes.remove([depot_index, depot_index, depot_index])
 
-	except:
+    except:
 
-		pass
-	
-	# # Annealing between routes
-	# routes = anneal_routes(
-	# 	case['adjacency'],
-	# 	routes,
-	# 	case['route_bounds'],
-	# 	case['leg_bounds'],
-	# 	case['stop_weights'],
-	# 	steps = kwargs['steps_routes'],
-	# 	)
-	
-	# # Annealing within routes
-	# for route in routes:
+        pass
+    
+    # # Annealing between routes
+    # routes = anneal_routes(
+    #   case['adjacency'],
+    #   routes,
+    #   case['route_bounds'],
+    #   case['leg_bounds'],
+    #   case['stop_weights'],
+    #   steps = kwargs['steps_routes'],
+    #   )
+    
+    # # Annealing within routes
+    # for route in routes:
 
-	# 	route = anneal_route(
-	# 		case['adjacency'],
-	# 		route,
-	# 		case['route_bounds'],
-	# 		case['leg_bounds'],
-	# 		case['stop_weights'],
-	# 		steps = kwargs['steps_route'],
-	# 		)
+    #   route = anneal_route(
+    #       case['adjacency'],
+    #       route,
+    #       case['route_bounds'],
+    #       case['leg_bounds'],
+    #       case['stop_weights'],
+    #       steps = kwargs['steps_route'],
+    #       )
 
-	# Adding routes to unreached destinations
-	reached = []
-	for route in routes:
-		reached.extend(route)
+    # Adding routes to unreached destinations
+    reached = []
+    for route in routes:
+        reached.extend(route)
 
-	possible_destinations = list(range(len(case['adjacency'][0])))
-	possible_destinations.remove(depot_index)
-	not_reached = np.array(possible_destinations)[~np.isin(possible_destinations, reached)]
+    possible_destinations = list(range(len(case['adjacency'][0])))
+    possible_destinations.remove(depot_index)
+    not_reached = np.array(possible_destinations)[~np.isin(possible_destinations, reached)]
 
-	# for destination in not_reached:
+    # for destination in not_reached:
 
-	# 	routes.append([depot_index, destination, depot_index])
+    #   routes.append([depot_index, destination, depot_index])
 
-	# Converting routes from indices to nodes
-	for idx, route in enumerate(routes):
+    # Converting routes from indices to nodes
+    for idx, route in enumerate(routes):
 
-		routes[idx] = [case['assignments']['idx_to_node'][node_idx] for node_idx in route]
+        routes[idx] = [case['assignments']['idx_to_node'][node_idx] for node_idx in route]
 
-	if not np.isinf(case['information']['fleet_size']):
+    if not np.isinf(case['information']['fleet_size']):
 
-		route_lengths = [len(route) for route in routes]
-		keep_indices = np.argsort(route_lengths)[-case['information']['fleet_size']:]
-		routes = [routes[idx] for idx in keep_indices]
+        route_lengths = [len(route) for route in routes]
+        keep_indices = np.argsort(route_lengths)[-case['information']['fleet_size']:]
+        routes = [routes[idx] for idx in keep_indices]
 
-	return routes, route_weights, success
+    return routes, route_weights, success
 
 def route_information(graph, raw_routes, fields):
 
-	for key, fun in fields.items():
+    for key, fun in fields.items():
 
-		if isinstance(fun, str):
+        if isinstance(fun, str):
 
-			fields[key] = eval(fun)
+            fields[key] = eval(fun)
 
-	routes = []
+    routes = []
 
-	for raw_route in raw_routes:
+    for raw_route in raw_routes:
 
-		route = {key: [] for key in fields.keys()}
-		route['nodes'] = raw_route
+        route = {key: [] for key in fields.keys()}
+        route['nodes'] = raw_route
 
-		for node in raw_route:
+        for node in raw_route:
 
-			for key, fun in fields.items():
+            for key, fun in fields.items():
 
-				route[key].append(fun(graph._node[node]))
+                route[key].append(fun(graph._node[node]))
 
-		routes.append(route)
+        routes.append(route)
 
-	return routes
+    return routes

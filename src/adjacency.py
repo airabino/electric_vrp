@@ -134,12 +134,14 @@ def node_assignment(atlas, graph):
 	result = kd_tree.query(xy_graph)
 
 	graph_to_atlas = {}
-	atlas_to_graph = {}
+	atlas_to_graph = {n: [] for n in atlas.nodes}
 
 	for idx in range(len(xy_graph)):
 
 		graph_to_atlas[graph_nodes[idx]] = result[1][idx]
-		atlas_to_graph[result[1][idx]] = graph_nodes[idx]
+		atlas_to_graph[result[1][idx]].append(graph_nodes[idx])
+
+	print(len(graph_to_atlas), len(atlas_to_graph))
 
 	return graph_to_atlas, atlas_to_graph
 
@@ -158,6 +160,7 @@ def adjacency(atlas, graph, weights, **kwargs):
 
 	# All nodes of graph are assumed to be targets
 	targets = [graph_to_atlas[n] for n in list(graph.nodes)]
+	print(len(targets))
 
 	# Collecting status of all nodes in graph
 	statuses = np.array([n['status'] for n in graph._node.values()])
@@ -176,6 +179,7 @@ def adjacency(atlas, graph, weights, **kwargs):
 		graph._node[n]['status'] = 1
 
 	# Computing routes between selected sources and all targets
+	print(len(sources))
 	results = multiple_source_dijkstra(atlas, sources, targets, weights, **kwargs)
 
 	# Compiling edge information from results into 3-tuple for adding to graph
@@ -183,10 +187,14 @@ def adjacency(atlas, graph, weights, **kwargs):
 
 	for result in results:
 
-		source = atlas_to_graph[result.pop('source')]
-		target = atlas_to_graph[result.pop('target')]
+		sources = atlas_to_graph[result.pop('source')]
+		targets = atlas_to_graph[result.pop('target')]
 
-		edges.append((source, target, result))
+		for source in sources:
+
+			for target in targets:
+
+				edges.append((source, target, result))
 
 	# Adding edges to graph
 	graph.add_edges_from(edges)

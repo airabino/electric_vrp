@@ -84,7 +84,7 @@ def PlotRoutes(graph,routes,figsize=(8,8),ax=None,cmap=ReturnColorMap('viridis')
 	PlotGraph(graph,ax=ax,field='route_depot',cmap=cmap,
 					  scatter_kwargs=destination_kwargs)
 
-	depot_cmap=ReturnColorMap(['none','k'])
+	depot_cmap=ReturnColorMap(['none','r'])
 	depot_kwargs['ec']=depot_cmap([node['is_depot'] for node in graph._node.values()])
 
 	# cmap=ReturnColorMap(['none','k'])
@@ -115,11 +115,11 @@ def PlotGraph(graph,figsize=(8,8),ax=None,cmap=ReturnColorMap('viridis'),field=N
 		values=np.array([v[field] for v in graph._node.values()]) * .9999
 	print(np.unique(values, return_counts = True))
 
-	val0 = values < 2/3
+	# val0 = values < 2/3
 
-	ax.scatter(coords[val0,0],coords[val0,1],c=values[val0],cmap=cmap,**scatter_kwargs)
+	# ax.scatter(coords[0],coords[1],c=values,cmap=cmap,**scatter_kwargs)
 
-	# ax.scatter(coords[:,0],coords[:,1],c=values,cmap=cmap,**scatter_kwargs)
+	ax.scatter(coords[:,0],coords[:,1],c=values,cmap=cmap,**scatter_kwargs)
 
 	if line_kwargs:
 		for v in graph._adj.values():

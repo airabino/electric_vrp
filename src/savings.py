@@ -6,15 +6,23 @@ from heapq import heappop, heappush
 from itertools import count
 
 from .progress_bar import ProgressBar
+from .dijkstra import dijkstra
 
-def array_expectation(x, s = .5, axis = 0):
+def add_depot_legs(graph, depots, objectives):
 
-	mu = x.mean(axis = axis)
-	sigma = x.std(axis = axis)
+    _, depot_paths = dijkstra(
+        graph,
+        depots,
+        weights = {key: np.inf for key in objectives.keys()},
+        return_paths = True
+    )
 
-	expectation = mu + s * sigma
+    for key, value in depot_paths.items():
 
-	return expectation
+        graph._node[key]['depot'] = value['source']
+        graph._node[key]['depot_leg'] = value['value']
+
+    return graph
 
 def find_routes(routes, node_0, node_1):
 
@@ -120,7 +128,9 @@ def requisites(graph, objectives, **kwargs):
 								combined_path_value - naive_path_value
 								)
 
-							savings_weighted_sum += pair_savings[objective]
+							savings_weighted_sum += (
+								limits['weight'] * pair_savings[objective]
+								)
 
 							feasible *= combined_path_value >= limits['leg'][0]
 							feasible *= combined_path_value <= limits['leg'][1]
@@ -139,16 +149,6 @@ def requisites(graph, objectives, **kwargs):
 								)
 
 	return savings, initial_routes, initial_route_values
-
-def savings(graph, objectives, **kwargs):
-
-	savings, initial_routes, initial_route_values = requisites(graph, objectives)
-
-	routes, route_values, success = clarke_wright(
-		graph, objectives, savings, initial_routes, initial_route_values, **kwargs
-		)
-
-	return routes, route_values, success
 
 def clarke_wright(graph, objectives, savings, routes, route_values, **kwargs):
 	
@@ -221,7 +221,17 @@ def clarke_wright(graph, objectives, savings, routes, route_values, **kwargs):
 				route_values[first_route_index] = combined_values
 
 				# Removing the individual routes
-				routes.remove(routes[second_route_index])
-				route_values.remove(route_values[second_route_index])
+				routes.pop(second_route_index)
+				route_values.pop(second_route_index)
+
+	return routes, route_values, success
+
+def savings(graph, objectives, **kwargs):
+
+	savings, initial_routes, initial_route_values = requisites(graph, objectives)
+
+	routes, route_values, success = clarke_wright(
+		graph, objectives, savings, initial_routes, initial_route_values, **kwargs
+		)
 
 	return routes, route_values, success
