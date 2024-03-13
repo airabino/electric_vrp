@@ -8,7 +8,7 @@ from itertools import count
 from .progress_bar import ProgressBar
 from .dijkstra import dijkstra
 
-def expectation(x, z = .5):
+def expectation(x, z = 0):
 
 	mu = x.mean()
 	sigma = x.std()
@@ -78,6 +78,7 @@ def requisites(graph, objectives, **kwargs):
 	depot -> destination 1 -> destination 2 -> depot
 
 	'''
+	z = kwargs.get('z', 0)
 
 	adjacency = graph._adj
 	nodes = graph._node
@@ -101,7 +102,7 @@ def requisites(graph, objectives, **kwargs):
 
 			initial_routes.append([source_depot, source, source_depot])
 			initial_route_values.append({
-				key: value * 2 + nodes[source]['value'][key] \
+				key: value * 2 + nodes[source][key] \
 				for key, value in source_depot_leg.items()
 			})
 
@@ -137,11 +138,17 @@ def requisites(graph, objectives, **kwargs):
 								)
 
 							savings_weighted_sum += (
-								limits['weight'] * expectation(pair_savings[objective])
+								limits['weight'] *
+								expectation(pair_savings[objective], z = z)
 								)
 
-							feasible *= expectation(combined_path_value) >= limits['leg'][0]
-							feasible *= expectation(combined_path_value) <= limits['leg'][1]
+							feasible *= (
+								expectation(combined_path_value, z = z) >= limits['leg'][0]
+								)
+
+							feasible *= (
+								expectation(combined_path_value, z = z) <= limits['leg'][1]
+								)
 
 						if feasible and (savings_weighted_sum < 0):
 
@@ -159,6 +166,8 @@ def requisites(graph, objectives, **kwargs):
 	return savings, initial_routes, initial_route_values
 
 def clarke_wright(graph, objectives, savings, routes, route_values, **kwargs):
+
+	z = kwargs.get('z', 0)
 	
 	kwargs.setdefault('max_iterations', int(1e7))
 
@@ -218,8 +227,13 @@ def clarke_wright(graph, objectives, savings, routes, route_values, **kwargs):
 					delta[objective]
 					)
 
-				feasible *= expectation(combined_values[objective]) >= limits['route'][0]
-				feasible *= expectation(combined_values[objective]) <= limits['route'][1]
+				feasible *= (
+					expectation(combined_values[objective], z = z) >= limits['route'][0]
+					)
+
+				feasible *= (
+					expectation(combined_values[objective], z = z) <= limits['route'][1]
+					)
 
 			# If the merged route is an improvement and feasible it is integrated
 			if feasible:
@@ -235,7 +249,7 @@ def clarke_wright(graph, objectives, savings, routes, route_values, **kwargs):
 
 def savings(graph, objectives, **kwargs):
 
-	savings, initial_routes, initial_route_values = requisites(graph, objectives)
+	savings, initial_routes, initial_route_values = requisites(graph, objectives, **kwargs)
 
 	routes, route_values, success = clarke_wright(
 		graph, objectives, savings, initial_routes, initial_route_values, **kwargs

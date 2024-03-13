@@ -20,6 +20,7 @@
 	},
 	"route_weights":["length","time"],
 	"voronoi_weight":"length",
+	"efficiency": 626.5,
 	"vehicles":{
 		"General 4 Hour":{
 			"node_criteria":{
@@ -60,6 +61,20 @@
 			"leg_bounds":{
 				"length":[20e3,Infinity],
 				"time":[0,72000]
+			},
+			"fleet_size":Infinity
+		},
+		"General 24 Hour":{
+			"node_criteria":{
+				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']"
+			},
+			"route_bounds":{
+				"length":[0,Infinity],
+				"time":[0,86400]
+			},
+			"leg_bounds":{
+				"length":[20e3,Infinity],
+				"time":[0,86400]
 			},
 			"fleet_size":Infinity
 		}

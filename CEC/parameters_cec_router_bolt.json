@@ -20,6 +20,7 @@
 	},
 	"route_weights":["length","time"],
 	"voronoi_weight":"length",
+	"efficiency": 626.5,
 	"vehicles":{
 		"Bolt 4 Hour":{
 			"node_criteria":{
@@ -42,11 +43,11 @@
 				"rng":"lambda n: (n['rng'] >= 0) & (n['rng'] < .34) | (n['ev_network_clean'] == 'Depot')"
 			},
 			"route_bounds":{
-				"length":[0,400e3],
+				"length":[0,Infinity],
 				"time":[0,28800]
 			},
 			"leg_bounds":{
-				"length":[20e3,300e3],
+				"length":[20e3,Infinity],
 				"time":[0,28800]
 			},
 			"fleet_size":Infinity

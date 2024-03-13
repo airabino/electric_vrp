@@ -3,6 +3,8 @@
 atlas.json
 graph.json
 routes.json
+Outputs/
+figs/
 
 #Keys file
 keys.txt

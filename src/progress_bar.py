@@ -18,7 +18,7 @@ class ProgressBar():
 		kwargs.setdefault('end_color', default_end_color)
 
 		self.iterable = iterable
-		self.total = len(iterable)
+		self.total = max([1, len(iterable)])
 		self.message_length = kwargs['message_length']
 		self.disp = kwargs['disp']
 		self.freq = kwargs['freq']
