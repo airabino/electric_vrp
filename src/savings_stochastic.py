@@ -15,43 +15,6 @@ def expectation(x, z = 0):
 
     return mu + z * sigma
 
-# def add_depot_legs(graph, n_cases, depots, objectives):
-
-#     origins = depots
-
-#     states = {
-#         key: {
-#             'field': key,
-#             'initial': np.array([0.] * n_cases),
-#             'update': lambda x, v: (x + v),
-#         }
-#         for key in objectives.keys()
-#     }
-
-#     # print(states)
-
-#     objectives_s = {
-#         key: lambda x: np.mean(x[key]) * objectives[key]['weight'] for key in objectives.keys()
-#     }
-
-#     # print(objectives_s)
-
-#     _, path_values, paths = dijkstra(
-#         graph,
-#         origins,
-#         # destinations = list(graph.nodes),
-#         states = states,
-#         objectives = objectives_s,
-#         return_paths = True,
-#     )
-
-#     for node, info in graph._node.items():
-
-#         info['depot'] = paths[node]
-#         info['depot_leg'] = path_values[node]
-
-#     return graph
-
 def add_depot_legs(graph, depots, objectives):
 
     depot_assignment = {}
