@@ -5,15 +5,16 @@ from scipy.special import factorial
 
 class MultiNormalSample():
 
-    def __init__(self, loc = [0], scale = [1], weight = [1], seed = None):
+    def __init__(self, **kwargs):
 
-        self.loc = loc
-        self.scale = scale
-        self.weight = weight
-        self.rng = np.random.default_rng(seed)
+        self.loc = kwargs.get('loc', [0])
+        self.scale = kwargs.get('scale', [1])
+        self.weight = kwargs.get('weight', [1])
+        self.clip = kwargs.get('clip', [-np.inf, np.inf])
+        self.rng = np.random.default_rng(kwargs.get('seed', None))
 
-        self.n = len(loc)
-        self.bins = np.cumsum(weight)
+        self.n = len(self.loc)
+        self.bins = np.cumsum(self.weight)
 
     def random(self, size = (1, )):
         # t0 = time.time()
@@ -32,7 +33,7 @@ class MultiNormalSample():
             vals += self.rng.normal(self.loc[idx], self.scale[idx], size) * add
         # print(time.time() - t0)
 
-        return vals
+        return np.clip(vals, *self.clip)
 
 def queuing_time(l, m, c):
 
@@ -88,7 +89,7 @@ class Charger_Time():
 
     def __init__(self, **kwargs):
 
-        self.rng = kwargs.get('rng', np.random.default_rng())
+        self.rng = np.random.default_rng(kwargs.get('seed', None))
         self.size = kwargs.get('size', (1, ))
 
         self.arrival = lambda n: arrival_frequency(n, self.rng, self.size)
@@ -107,3 +108,63 @@ class Charger_Time():
         node['test_time'] = self.test(node)
 
         node['time'] = node['queue_time'] + node['test_time']
+
+def assign_link_parameters(graph, parameters):
+
+    # mns = MultiNormalSample(
+    #     **parameters['link_traffic'],
+    #     seed = parameters['rng_seed']
+    #     )
+
+    shape = parameters['n_samples']
+    rng = np.random.default_rng(parameters['rng_seed'])
+
+    for source, links in graph._adj.items():
+        for target, link in links.items():
+
+            # mult = 1 / mns.random(shape)
+            k_0 = parameters['link_speed_multiplier'][0]
+            k_1 = parameters['link_speed_multiplier'][1] - k_0
+            mult = rng.random(shape) * k_1 + k_0
+
+            link['time'] = link['time'] / mult
+            link['length'] = link['length'] * np.ones(shape)
+            link['price'] = (link['length'] * parameters['efficiency'] / 
+                3.6e6 * parameters['energy_price'])
+
+    return graph
+
+def assign_node_parameters(graph, parameters):
+
+    size = parameters['n_samples']
+    seed = parameters['rng_seed']
+
+    charger_time = Charger_Time(size = size, seed = seed)
+
+    for node in graph._node.values():
+
+        charger_time.assign(node)
+        node['length'] = np.zeros(size)
+        node['price'] = np.zeros(size)
+
+        # node['time_dl'] = np.zeros(size)
+
+    return graph
+
+def assign_node_parameters_null(graph, parameters):
+
+    size = parameters['n_samples']
+    seed = parameters['rng_seed']
+
+    charger_time = Charger_Time(size = size, seed = seed)
+
+    for node in graph._node.values():
+
+        # charger_time.assign(node)
+        node['time'] = np.zeros(size)
+        node['length'] = np.zeros(size)
+        node['price'] = np.zeros(size)
+
+        # node['time_dl'] = np.zeros(size)
+
+    return graph

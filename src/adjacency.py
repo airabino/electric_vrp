@@ -97,6 +97,7 @@ def multiple_source_dijkstra(atlas, sources, targets, weights, **kwargs):
 
 	kwargs.setdefault('pb_kwargs', {'disp': True})
 	kwargs.setdefault('dijkstra_kwargs', {'return_paths': False})
+	kwargs.setdefault('depots', [])
 
 	if not hasattr(targets, '__iter__'):
 		targets=[targets]
@@ -105,8 +106,17 @@ def multiple_source_dijkstra(atlas, sources, targets, weights, **kwargs):
 
 	for source in ProgressBar(sources, **kwargs['pb_kwargs']):
 
+		if source in kwargs['depots']:
+
+			_weights = {key: np.inf for key in weights.keys()}
+			# print(source, _weights)
+
+		else:
+
+			_weights = weights
+
 		result = single_source_dijkstra(
-			atlas, source, targets, weights, **kwargs['dijkstra_kwargs'])
+			atlas, source, targets, _weights, **kwargs['dijkstra_kwargs'])
 
 		results.extend(result)
 
@@ -154,13 +164,14 @@ def adjacency(atlas, graph, weights, **kwargs):
 	kwargs.setdefault('dijkstra_kwargs', {'return_paths': False})
 	kwargs.setdefault('compute_all', False)
 	kwargs.setdefault('node_assignment_function', node_assignment)
+	kwargs.setdefault('depots', [])
 
 	# Maps closest nodes from atlas to graph and graph to atlas
 	graph_to_atlas, atlas_to_graph = kwargs['node_assignment_function'](atlas, graph)
 
 	# All nodes of graph are assumed to be targets
 	targets = [graph_to_atlas[n] for n in list(graph.nodes)]
-	print(len(targets))
+	# print(len(targets))
 
 	# Collecting status of all nodes in graph
 	statuses = np.array([n['status'] for n in graph._node.values()])
@@ -174,12 +185,14 @@ def adjacency(atlas, graph, weights, **kwargs):
 
 		sources = [targets[idx] for idx, status in enumerate(statuses) if status == 0]
 
+	kwargs['depots'] = [graph_to_atlas[n] for n in list(kwargs['depots'])]
+
 	for n in list(graph.nodes):
 
 		graph._node[n]['status'] = 1
 
 	# Computing routes between selected sources and all targets
-	print(len(sources))
+	# print(len(sources))
 	results = multiple_source_dijkstra(atlas, sources, targets, weights, **kwargs)
 
 	# Compiling edge information from results into 3-tuple for adding to graph

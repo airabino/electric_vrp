@@ -44,6 +44,13 @@ parser.add_argument(
 	)
 
 parser.add_argument(
+	'-d', '--depots',
+	help = 'Nodes which are depots',
+	default = [],
+	nargs = '+',
+	)
+
+parser.add_argument(
 	'-w', '--weights',
 	help = (
 		'Dictionary off routing weights -> {edge_field: limit}.\n' +
@@ -94,14 +101,16 @@ if __name__ == "__main__":
 	atlas = src.graph.graph_from_json(args['atlas_file'])
 
 	CondPrint('Computing adjacency\n', args['verbose'])
-	graph = src.adjacency.adjacency(atlas, graph, args['weights'], end_color = '')
+	graph = src.adjacency.adjacency(
+		atlas, graph, args['weights'], end_color = '', depots = args['depots']
+		)
 
 	#Writing to file
 	if args['output_file'] is None:
 
 		args['output_file'] = args['graph_file']
 
-	CondPrint('Writing to file\n', args['verbose'])
+	CondPrint('\nWriting to file\n', args['verbose'])
 	src.graph.graph_to_json(graph, args['output_file'])
 
 	CondPrint(
