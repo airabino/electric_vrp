@@ -33,7 +33,8 @@
 		"Bolt":{
 			"node_criteria":{
 				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
-				"rng":"lambda n: (n['rng'] >= 0) & (n['rng'] < .34) | (n['ev_network_clean'] == 'Depot')"
+				"rng":"lambda n: (n['rng'] >= 0) & (n['rng'] < .34) | (n['ev_network_clean'] == 'Depot')",
+				"visited": "lambda n: n['visited'] == 0"
 			},
 			"cases": [
 				{
@@ -125,7 +126,8 @@
 		"Lightning":{
 			"node_criteria":{
 				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
-				"rng":"lambda n: (n['rng'] >= .34) & (n['rng'] < .67) | (n['ev_network_clean'] == 'Depot')"
+				"rng":"lambda n: (n['rng'] >= .34) & (n['rng'] < .67) | (n['ev_network_clean'] == 'Depot')",
+				"visited": "lambda n: n['visited'] == 0"
 			},
 			"cases": [
 				{
@@ -217,7 +219,8 @@
 		"Ioniq":{
 			"node_criteria":{
 				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
-				"rng":"lambda n: (n['rng'] >= .67) & (n['rng'] < 1.) | (n['ev_network_clean'] == 'Depot')"
+				"rng":"lambda n: (n['rng'] >= .67) & (n['rng'] < 1.) | (n['ev_network_clean'] == 'Depot')",
+				"visited": "lambda n: n['visited'] == 0"
 			},
 			"cases": [
 				{
@@ -308,7 +311,8 @@
 		},
 		"Model 3":{
 			"node_criteria":{
-				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Tesla', 'Tesla Destination']"
+				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Tesla', 'Tesla Destination']",
+				"visited": "lambda n: n['visited'] == 0"
 			},
 			"cases": [
 				{
