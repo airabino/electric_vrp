@@ -33,7 +33,7 @@
 		"Bolt":{
 			"node_criteria":{
 				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
-				"rng":"lambda n: (n['rng'] >= 0) & (n['rng'] < .34) | (n['ev_network_clean'] == 'Depot')",
+				"rng":"lambda n: ((n['rng'] >= 0.) & (n['rng'] < .25) & (n['dcfc'] == 0)) | ((n['rng'] >= 0.) & (n['rng'] < .33) & (n['dcfc'] == 1)) | (n['ev_network_clean'] == 'Depot')",
 				"visited": "lambda n: n['visited'] == 0"
 			},
 			"cases": [
@@ -126,7 +126,7 @@
 		"Lightning":{
 			"node_criteria":{
 				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
-				"rng":"lambda n: (n['rng'] >= .34) & (n['rng'] < .67) | (n['ev_network_clean'] == 'Depot')",
+				"rng":"lambda n: ((n['rng'] >= .25) & (n['rng'] < .5) & (n['dcfc'] == 0)) | ((n['rng'] >= .33) & (n['rng'] < .67) & (n['dcfc'] == 1)) | (n['ev_network_clean'] == 'Depot')",
 				"visited": "lambda n: n['visited'] == 0"
 			},
 			"cases": [
@@ -219,7 +219,7 @@
 		"Ioniq":{
 			"node_criteria":{
 				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
-				"rng":"lambda n: (n['rng'] >= .67) & (n['rng'] < 1.) | (n['ev_network_clean'] == 'Depot')",
+				"rng":"lambda n: ((n['rng'] >= .5) & (n['rng'] < .75) & (n['dcfc'] == 0)) | ((n['rng'] >= .67) & (n['rng'] < 1.) & (n['dcfc'] == 1)) | (n['ev_network_clean'] == 'Depot')",
 				"visited": "lambda n: n['visited'] == 0"
 			},
 			"cases": [
@@ -311,7 +311,8 @@
 		},
 		"Model 3":{
 			"node_criteria":{
-				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Tesla', 'Tesla Destination']",
+				"ev_network_clean":"lambda n: n['ev_network_clean'] in ['Depot','Tesla','Tesla Destination','Other','ChargePoint Network','eVgo Network','Electrify America','FLO','Volta']",
+				"rng":"lambda n: ((n['rng'] >= .75) & (n['rng'] < 1.) & (n['dcfc'] == 0)) | ((n['ev_network_clean'] == 'Tesla') & (n['dcfc'] == 1)) | (n['ev_network_clean'] == 'Depot') | (n['ev_network_clean'] == 'Tesla Destination')",
 				"visited": "lambda n: n['visited'] == 0"
 			},
 			"cases": [
