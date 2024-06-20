@@ -183,7 +183,11 @@ def adjacency(atlas, graph, weights, **kwargs):
 
 	else:
 
-		sources = [targets[idx] for idx, status in enumerate(statuses) if status == 0]
+		sources = [graph_to_atlas[k] for k, v in graph._adj.items() if not v]
+
+		# sources = [targets[idx] for idx, status in enumerate(statuses) if status == 0]
+
+	# print(sources)
 
 	kwargs['depots'] = [graph_to_atlas[n] for n in list(kwargs['depots'])]
 

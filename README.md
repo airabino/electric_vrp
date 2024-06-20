@@ -46,6 +46,10 @@ Selection by county:
 
 python graph_from_csv.py -p CEC/parameters_cec_csv.json -v -k County Sacremento 'San Joaquin' Amador Yolo Solano 'El Dorado' 'Contra Costa' Sutter Pacer
 
+Adding nodes to existing graph:
+
+python graph_from_csv.py -p CEC/parameters_cec_csv.json -v -g graph.json
+
 Call with -h/--help for options.
 
 2. graph_from_shapefile.py:

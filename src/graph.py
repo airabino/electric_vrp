@@ -291,34 +291,48 @@ def dataframe_from_csv(filename):
 
 	return dataframe
 
-def nlg_from_dataframe(dataframe, node_attributes = {}):
+def nlg_from_dataframe(dataframe, node_attributes = {}, graph = None):
 	'''
 	Creates NLG dictionary with empty links from dataframe.
 	See reformat_graph for description of node_attributes.
 	'''
 
-	nodes = []
+	if graph is None:
+
+		nodes = []
+		links = []
+
+	else:
+
+		data = nx.node_link_data(graph)
+
+		nodes = data['nodes']
+		links = data['links']
+
+	existing_nodes = [n['id'] for n in nodes]
 
 	for source_idx, source in dataframe.iterrows():
 
-		# Adding id field and status field - status == 0 for adjacency not computed
-		node = {
-			'id': source_idx,
-			'status': 0,
-			'visited': 0,
-			}
+		if source not in existing_nodes:
 
-		for field, fun in node_attributes.items():
+			# Adding id field and status field - status == 0 for adjacency not computed
+			node = {
+				'id': source_idx,
+				'status': 0,
+				'visited': 0,
+				}
 
-			if type(fun) is str:
+			for field, fun in node_attributes.items():
 
-				fun = eval(fun)
+				if type(fun) is str:
 
-			node[field] = fun(source)
+					fun = eval(fun)
 
-		nodes.append(node)
+				node[field] = fun(source)
 
-	nlg = {'nodes': nodes, 'links': []}
+			nodes.append(node)
+
+	nlg = {'nodes': nodes, 'links': links}
 
 	return nlg
 
