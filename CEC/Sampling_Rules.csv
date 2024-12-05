@@ -1,0 +1,184 @@
+,GreaterRegion,DAC/LIC,rural,EV Network Clean,DCFC,Count
+0,Central Other,0,0,ChargePoint Network,0,28
+1,Central Other,0,0,ChargePoint Network,1,7
+2,Central Other,0,0,Electrify America,1,0
+3,Central Other,0,0,Other,0,2
+4,Central Other,0,0,Tesla,1,2
+5,Central Other,0,0,Tesla Destination,0,1
+6,Central Other,0,0,eVgo Network,1,0
+7,Central Other,0,1,ChargePoint Network,0,3
+8,Central Other,0,1,ChargePoint Network,1,2
+9,Central Other,0,1,Other,0,1
+10,Central Other,0,1,Other,1,2
+11,Central Other,0,1,Tesla,1,1
+12,Central Other,0,1,Tesla Destination,0,3
+13,Central Other,1,0,ChargePoint Network,0,26
+14,Central Other,1,0,ChargePoint Network,1,9
+15,Central Other,1,0,Electrify America,1,0
+16,Central Other,1,0,Other,0,9
+17,Central Other,1,0,Other,1,7
+18,Central Other,1,0,Tesla,1,3
+19,Central Other,1,0,Tesla Destination,0,1
+20,Central Other,1,0,eVgo Network,1,3
+21,Central Other,1,1,ChargePoint Network,0,14
+22,Central Other,1,1,ChargePoint Network,1,8
+23,Central Other,1,1,Electrify America,1,0
+24,Central Other,1,1,Other,0,18
+25,Central Other,1,1,Other,1,6
+26,Central Other,1,1,Tesla,1,3
+27,Central Other,1,1,Tesla Destination,0,3
+28,Central Other,1,1,eVgo Network,1,1
+29,Los Angeles,0,0,ChargePoint Network,0,159
+30,Los Angeles,0,0,ChargePoint Network,1,3
+31,Los Angeles,0,0,Electrify America,1,10
+32,Los Angeles,0,0,FLO,0,16
+33,Los Angeles,0,0,Other,0,15
+34,Los Angeles,0,0,Other,1,10
+35,Los Angeles,0,0,Tesla,1,6
+36,Los Angeles,0,0,Tesla Destination,0,13
+37,Los Angeles,0,0,SHELL_RECHARGE,0,9
+38,Los Angeles,0,0,eVgo Network,1,18
+39,Los Angeles,0,1,ChargePoint Network,0,6
+40,Los Angeles,0,1,ChargePoint Network,1,1
+41,Los Angeles,0,1,Electrify America,1,1
+42,Los Angeles,0,1,Other,0,0
+43,Los Angeles,0,1,Other,1,1
+44,Los Angeles,0,1,Tesla,1,1
+45,Los Angeles,0,1,Tesla Destination,0,8
+46,Los Angeles,1,0,ChargePoint Network,0,205
+47,Los Angeles,1,0,ChargePoint Network,1,16
+48,Los Angeles,1,0,Electrify America,1,13
+49,Los Angeles,1,0,FLO,0,25
+50,Los Angeles,1,0,Other,0,72
+51,Los Angeles,1,0,Other,1,25
+52,Los Angeles,1,0,Tesla,1,13
+53,Los Angeles,1,0,Tesla Destination,0,8
+54,Los Angeles,1,0,SHELL_RECHARGE,0,4
+55,Los Angeles,1,0,eVgo Network,1,9
+56,Los Angeles,1,1,ChargePoint Network,0,10
+57,Los Angeles,1,1,ChargePoint Network,1,8
+58,Los Angeles,1,1,Electrify America,1,1
+59,Los Angeles,1,1,Other,0,8
+60,Los Angeles,1,1,Other,1,7
+61,Los Angeles,1,1,Tesla Destination,0,6
+62,Northern Other,0,1,Other,0,1
+63,Northern Other,0,1,Tesla,1,1
+64,Northern Other,0,1,Tesla Destination,0,2
+65,Northern Other,1,0,ChargePoint Network,0,0
+66,Northern Other,1,0,ChargePoint Network,1,1
+67,Northern Other,1,0,Other,0,0
+68,Northern Other,1,0,Tesla,1,1
+69,Northern Other,1,0,Tesla Destination,0,2
+70,Northern Other,1,0,eVgo Network,1,1
+71,Northern Other,1,1,ChargePoint Network,0,13
+72,Northern Other,1,1,ChargePoint Network,1,10
+73,Northern Other,1,1,Electrify America,1,3
+74,Northern Other,1,1,Other,0,1
+75,Northern Other,1,1,Other,1,13
+76,Northern Other,1,1,Tesla,1,6
+77,Northern Other,1,1,Tesla Destination,0,4
+78,Sacramento,0,0,ChargePoint Network,0,0
+79,Sacramento,0,0,ChargePoint Network,1,0
+80,Sacramento,0,0,Electrify America,1,0
+81,Sacramento,0,0,Other,0,0
+82,Sacramento,0,0,Other,1,1
+83,Sacramento,0,0,Tesla,1,0
+84,Sacramento,0,0,SHELL_RECHARGE,0,0
+85,Sacramento,0,0,eVgo Network,1,0
+86,Sacramento,0,1,ChargePoint Network,0,2
+87,Sacramento,0,1,ChargePoint Network,1,0
+88,Sacramento,0,1,Electrify America,1,0
+89,Sacramento,0,1,Other,0,0
+90,Sacramento,0,1,Other,1,1
+91,Sacramento,0,1,Tesla,1,0
+92,Sacramento,0,1,Tesla Destination,0,0
+93,Sacramento,1,0,ChargePoint Network,0,0
+94,Sacramento,1,0,ChargePoint Network,1,0
+95,Sacramento,1,0,Electrify America,1,2
+96,Sacramento,1,0,Other,0,0
+97,Sacramento,1,0,Other,1,2
+98,Sacramento,1,0,Tesla,1,0
+99,Sacramento,1,0,Tesla Destination,0,0
+100,Sacramento,1,0,SHELL_RECHARGE,0,0
+101,Sacramento,1,0,eVgo Network,1,0
+102,Sacramento,1,1,ChargePoint Network,0,0
+103,Sacramento,1,1,ChargePoint Network,1,0
+104,Sacramento,1,1,Electrify America,1,0
+105,Sacramento,1,1,Other,0,0
+106,Sacramento,1,1,Tesla Destination,0,0
+107,Sacramento,1,1,eVgo Network,1,1
+108,San Diego,0,0,ChargePoint Network,0,49
+109,San Diego,0,0,ChargePoint Network,1,6
+110,San Diego,0,0,Other,0,10
+111,San Diego,0,0,Other,1,4
+112,San Diego,0,0,Tesla,1,0
+113,San Diego,0,0,Tesla Destination,0,1
+114,San Diego,0,0,SHELL_RECHARGE,0,3
+115,San Diego,0,0,eVgo Network,1,4
+116,San Diego,0,1,Other,0,1
+117,San Diego,1,0,ChargePoint Network,0,54
+118,San Diego,1,0,ChargePoint Network,1,4
+119,San Diego,1,0,Electrify America,1,4
+120,San Diego,1,0,Other,0,19
+121,San Diego,1,0,Other,1,4
+122,San Diego,1,0,Tesla,1,0
+123,San Diego,1,0,Tesla Destination,0,0
+124,San Diego,1,0,SHELL_RECHARGE,0,1
+125,San Diego,1,0,eVgo Network,1,4
+126,San Diego,1,1,ChargePoint Network,0,2
+127,San Diego,1,1,Other,0,7
+128,San Diego,1,1,Tesla,1,0
+129,San Francisco,0,0,ChargePoint Network,0,128
+130,San Francisco,0,0,ChargePoint Network,1,3
+131,San Francisco,0,0,Electrify America,1,4
+132,San Francisco,0,0,Other,0,21
+133,San Francisco,0,0,Other,1,9
+134,San Francisco,0,0,Tesla,1,4
+135,San Francisco,0,0,Tesla Destination,0,6
+136,San Francisco,0,0,SHELL_RECHARGE,0,4
+137,San Francisco,0,0,eVgo Network,1,13
+138,San Francisco,0,1,ChargePoint Network,0,2
+139,San Francisco,0,1,Other,0,0
+140,San Francisco,0,1,Other,1,1
+141,San Francisco,0,1,Tesla Destination,0,7
+142,San Francisco,0,1,eVgo Network,1,0
+143,San Francisco,1,0,ChargePoint Network,0,108
+144,San Francisco,1,0,ChargePoint Network,1,12
+145,San Francisco,1,0,Electrify America,1,2
+146,San Francisco,1,0,Other,0,1
+147,San Francisco,1,0,Other,1,7
+148,San Francisco,1,0,Tesla,1,1
+149,San Francisco,1,0,Tesla Destination,0,1
+150,San Francisco,1,0,SHELL_RECHARGE,0,2
+151,San Francisco,1,0,eVgo Network,1,0
+152,San Francisco,1,1,ChargePoint Network,0,2
+153,San Francisco,1,1,Other,0,0
+154,San Francisco,1,1,Other,1,0
+155,San Francisco,1,1,Tesla Destination,0,0
+156,San Francisco,1,1,eVgo Network,1,1
+157,Southern Other,0,0,ChargePoint Network,0,33
+158,Southern Other,0,0,ChargePoint Network,1,15
+159,Southern Other,0,0,Other,0,8
+160,Southern Other,0,0,Other,1,6
+161,Southern Other,0,0,Tesla,1,4
+162,Southern Other,0,0,Tesla Destination,0,6
+163,Southern Other,0,0,SHELL_RECHARGE,0,4
+164,Southern Other,0,0,eVgo Network,1,3
+165,Southern Other,0,1,ChargePoint Network,0,2
+166,Southern Other,0,1,Other,1,1
+167,Southern Other,0,1,Tesla,1,1
+168,Southern Other,0,1,Tesla Destination,0,1
+169,Southern Other,1,0,ChargePoint Network,0,40
+170,Southern Other,1,0,ChargePoint Network,1,16
+171,Southern Other,1,0,Other,0,19
+172,Southern Other,1,0,Other,1,8
+173,Southern Other,1,0,Tesla,1,2
+174,Southern Other,1,0,Tesla Destination,0,1
+175,Southern Other,1,0,SHELL_RECHARGE,0,1
+176,Southern Other,1,0,eVgo Network,1,1
+177,Southern Other,1,1,ChargePoint Network,0,13
+178,Southern Other,1,1,ChargePoint Network,1,6
+179,Southern Other,1,1,Electrify America,1,2
+180,Southern Other,1,1,Other,1,2
+181,Southern Other,1,1,Tesla,1,6
+182,Southern Other,1,1,eVgo Network,1,2

@@ -2,152 +2,139 @@ import sys
 import time
 import numpy as np
 
+from scipy.stats import t
 from shutil import get_terminal_size
+
+def super_quantile(x, alpha, discretization = .01):
+    
+    q = np.arange(alpha, .99, discretization)
+    # print(q)
+    
+    sq = 1/(1 - alpha) * (np.quantile(x, q) * discretization).sum()
+
+    return sq
+
+def super_quantile_normal(x, alpha, discretization = .01):
+    
+    # q = np.arange(alpha, .99, discretization)
+    # # print(q)
+    
+    # sq = 1/(1 - alpha) * (np.quantile(x, q) * discretization).sum()
+
+    return x.mean() + alpha * x.std()
 
 '''
 Calculates Gini coefficient (inequality)
 '''
-def GiniCoefficient(x):
+def gini(x):
 
-	total=0
+    x = np.array(x)
 
-	for i,xi in enumerate(x[:-1],1):
-		total+=np.sum(np.abs(xi-x[i:]))
+    total = 0
 
-	return total/(len(x)**2*np.mean(x))
+    for i, xi in enumerate(x[:-1], 1):
 
-def IsIterable(value):
-	return hasattr(value,'__iter__')
+        total += np.sum(np.abs(xi - x[i:]))
 
-def TopNIndices(array,n):
-	return sorted(range(len(array)), key=lambda i: array[i])[-n:]
+    return total / (len(x) ** 2 * np.mean(x))
 
-def BottomNIndices(array,n):
-	return sorted(range(len(array)), key=lambda i: array[i])[:n]
+def in_iterable(value):
 
-def FullFact(levels):
-	n = len(levels)  # number of factors
-	nb_lines = np.prod(levels)  # number of trial conditions
-	H = np.zeros((nb_lines, n))
-	level_repeat = 1
-	range_repeat = np.prod(levels).astype(int)
-	for i in range(n):
-		range_repeat /= levels[i]
-		range_repeat=range_repeat.astype(int)
-		lvl = []
-		for j in range(levels[i]):
-			lvl += [j]*level_repeat
-		rng = lvl*range_repeat
-		level_repeat *= levels[i]
-		H[:, i] = rng
-	return H.astype(int)
+    return hasattr(value, '__iter__')
 
-def Pythagorean(x1,y1,x2,y2):
-	return np.sqrt((x1-x2)**2+(y1-y2)**2)
+def top_n_indices(array, n):
 
-#Function for calculating distances between lon/lat pairs
-def Haversine(lon1,lat1,lon2,lat2):
-	r=6372800 #[m]
-	dLat=np.radians(lat2-lat1)
-	dLon=np.radians(lon2-lon1)
-	lat1=np.radians(lat1)
-	lat2=np.radians(lat2)
-	a=np.sin(dLat/2)**2 + np.cos(lat1)*np.cos(lat2)*np.sin(dLon/2)**2
-	c=2*np.arcsin(np.sqrt(a))
-	return c*r
+    return sorted(range(len(array)), key=lambda i: array[i])[-n:]
 
-def RMSE(x,y):
+def bottom_n_indices(array, n):
 
-	return np.sqrt(((x-y)**2).sum()/len(x))
+    return sorted(range(len(array)), key=lambda i: array[i])[:n]
 
-def CondPrint(message,disp=True,*args,**kwargs):
+def full_factorial(levels):
 
-	if disp:
-		print(message,**kwargs)
+    n = len(levels)  # number of factors
 
-#Custom progress bar
-class ProgressBar():
+    nb_lines = np.prod(levels)  # number of trial conditions
 
-	def __init__(self, iterable, message_length = None, disp = True, freq = 1):
+    h = np.zeros((nb_lines, n))
 
-		if message_length is None:
-			message_length = get_terminal_size()[0]
+    level_repeat = 1
+    range_repeat = np.prod(levels).astype(int)
 
-		self.iterable=iterable
-		self.total=len(iterable)
-		self.message_length=message_length
-		self.disp=disp
-		self.freq=freq
-		
-		if self.disp:
-			self.update=self.Update
-		else:
-			self.update=self.Update_Null
+    for i in range(n):
 
-	def __iter__(self):
+        range_repeat /= levels[i]
+        range_repeat = range_repeat.astype(int)
 
-		return PBIterator(self)
+        lvl = []
 
-	def Update_Null(self,current,rt):
-		pass
+        for j in range(levels[i]):
 
-	def Update(self,current,rt):
+            lvl += [j] * level_repeat
 
-		percent=float(current-1)*100/self.total
-		itps=current/rt
-		projrem=max([0,(self.total-current)/itps])
+        rng = lvl*range_repeat
 
-		str_0 = "\r\033[32m "
-		str_1 = "Progress"
-		str_3 = f" ({current-1}/{self.total}) {percent:.2f}%,"
-		str_4 = f" {itps:.2f} it/s,"
-		str_5 = f" {rt:.2f} s elapsed, {projrem:.2f} s remaining"
-		str_6 = "\033[0m\r"
+        level_repeat *= levels[i]
 
-		columns_used = len(str_1 + str_3 + str_4 + str_5)
+        h[:, i] = rng
 
-		bar_length = self.message_length - columns_used
+    return h.astype(int)
 
-		arrow='-'*int(percent/100*bar_length-1)+'>'
-		spaces=' '*(bar_length-len(arrow))
+def two_way_t_test(x, y):
 
-		str_2 = f" [{arrow}{spaces}]"
+    x_n = len(x)
+    y_n = len(y)
 
-		message = str_0 + str_1 + str_2 + str_3 + str_4 + str_5 + str_6
+    x_mu = np.mean(x)
+    y_mu = np.mean(y)
 
-		sys.stdout.write(message)
-		sys.stdout.flush()
+    x_sig = np.std(x)
+    y_sig = np.std(y)
 
-#Custom iterator for progress bar
-class PBIterator():
-	def __init__(self,ProgressBar):
+    x_se = x_sig / np.sqrt(x_n)
+    y_se = y_sig / np.sqrt(y_n)
 
-		self.ProgressBar=ProgressBar
-		self.index=0
-		self.rt=0
-		self.t0=time.time()
+    x_y_se = np.sqrt(x_se ** 2 + y_se ** 2)
 
-	def __next__(self):
+    t_value = (x_mu - y_mu) / x_y_se
 
-		if self.index<len(self.ProgressBar.iterable):
+    df = x_n + y_n
 
-			self.index+=1
-			self.rt=time.time()-self.t0
+    p_value = (1 - t.cdf(np.abs(t_value), df)) * 2
 
-			if self.index%self.ProgressBar.freq==0:
-				self.ProgressBar.update(self.index,self.rt)
+    return p_value
 
-			return self.ProgressBar.iterable[self.index-1]
+def pythagorean(source_x, source_y, target_x, target_y):
 
-		else:
+    return np.sqrt((target_x - source_x) ** 2 + (target_y - source_y) ** 2)
 
-			self.index+=1
-			self.rt=time.time()-self.t0
+def haversine(source_longitude, source_latitude, target_longitude, target_latitude, **kwargs):
 
-			self.ProgressBar.update(self.index,self.rt)
+    radius = kwargs.get('radius', 6372800) # [m]
+    
+    distance_longitude_radians = np.radians(target_longitude - source_longitude)
+    distance_latitude_radians = np.radians(target_latitude - source_latitude)
 
-			if self.ProgressBar.disp:
-				
-				print('\n')
+    source_latitude_radians = np.radians(source_latitude)
+    target_latitude_radians = np.radians(target_latitude)
 
-			raise StopIteration
+    a_squared = (
+        np.sin(distance_latitude_radians / 2) ** 2 +
+        np.cos(source_latitude_radians) *
+        np.cos(target_latitude_radians) *
+        np.sin(distance_longitude_radians / 2) ** 2
+        )
+
+    c = 2 * np.arcsin(np.sqrt(a_squared))
+
+    return c * radius
+
+def root_mean_square_error(x, y):
+
+    return np.sqrt(((x - y) ** 2).sum() / len(x))
+
+def cprint(message, disp = True, **kwargs):
+
+    if disp:
+
+        print(message, **kwargs)

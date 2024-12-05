@@ -12,208 +12,249 @@ cases where either could be used "graph" will be used as default.
 
 import numpy as np
 
+from sys import maxsize
+
 from scipy.spatial import KDTree
+from itertools import count
+from heapq import heappop, heappush
 
 from .progress_bar import ProgressBar
-from .dijkstra import dijkstra
 
-# Routing functions and related objects
+from .graph import graph_from_nlg, cypher
+from .utilities import pythagorean, haversine
 
 def closest_nodes_from_coordinates(graph, x, y):
-	'''
-	Creates an assignment dictionary mapping between points and closest nodes
-	'''
+    '''
+    Creates an assignment dictionary mapping between points and closest nodes
+    '''
 
-	# Pulling coordinates from graph
-	xy_graph = np.array([(n['x'], n['y']) for n in graph._node.values()])
-	xy_graph = xy_graph.reshape((-1,2))
+    nodes = list(graph.nodes)
 
-	# Creating spatial KDTree for assignment
-	kd_tree = KDTree(xy_graph)
+    # Pulling coordinates from graph
+    xy_graph = np.array([(n['x'], n['y']) for n in graph._node.values()])
+    xy_graph = xy_graph.reshape((-1,2))
 
-	# Shaping input coordinates
-	xy_query = np.vstack((x, y)).T
+    # Creating spatial KDTree for assignment
+    kd_tree = KDTree(xy_graph)
 
-	# Computing assignment
-	result = kd_tree.query(xy_query)
+    # Shaping input coordinates
+    xy_query = np.vstack((x, y)).T
 
-	node_assignment = []
+    # Computing assignment
+    result = kd_tree.query(xy_query)
 
-	for idx in range(len(x)):
+    node_assignment = []
 
-		node = result[1][idx]
+    for idx in range(len(x)):
 
-		node_assignment.append({
-			'id':node,
-			'query':xy_query[idx],
-			'result':xy_graph[node],
-			})
+        distance = result[0][idx]
+        node = result[1][idx]
 
-	return node_assignment
+        node_assignment.append({
+            'id': nodes[node],
+            'query': xy_query[idx],
+            'result': xy_graph[node],
+            'distance': distance,
+            })
 
-def single_source_dijkstra(atlas, source, targets, weights, return_paths = False):
-	'''
-	Compute lowest cost route(s) from source to target(s) on atlas.
-	See .dijkstra.dijkstra for details on inputs
-	'''
+    return node_assignment
 
-	if not hasattr(targets, '__iter__'):
-		targets=[targets]
+def relate(atlas, graph):
+    '''
+    Creates an assignment dictionary mapping between points and closest nodes
+    '''
 
-	route_weights, routes = dijkstra(
-		atlas,
-		[source],
-		[],
-		weights,
-		return_paths,
-		)
+    # Pulling coordinates from atlas
+    id_atlas = list(atlas.nodes())
+    xy_atlas = np.array([(n['x'], n['y']) for n in atlas._node.values()])
+    xy_atlas = xy_atlas.reshape((-1,2))
 
-	keys = np.array(list(route_weights.keys()))
-	route_information = np.array(list(route_weights.values()))
+    # Pulling coordinates from graph
+    id_graph = list(graph.nodes())
+    xy_graph = np.array([(n['x'], n['y']) for n in graph._node.values()])
+    xy_graph = xy_graph.reshape((-1,2))
 
-	select = np.isin(keys, targets)
+    # Creating spatial KDTree for assignment
+    kd_tree = KDTree(xy_atlas)
 
-	keys_select = keys[select]
-	route_information_select = route_information[select]
+    # Computing assignment
+    result = kd_tree.query(xy_graph)
 
-	result = []
+    node_assignment = []
 
-	for idx, key in enumerate(keys_select):
+    for idx in range(len(xy_graph)):
 
-		result.append({
-			'source': source,
-			'target': key,
-			**{weight: route_information_select[idx][idx_weight] \
-			for idx_weight, weight in enumerate(weights)},
-			})
+        distance = result[0][idx]
+        node = result[1][idx]
+        
 
-	return result
+        node_assignment.append({
+            'id_atlas':id_atlas[node],
+            'id_graph':id_graph[idx],
+            'query':xy_graph[idx],
+            'result':xy_atlas[node],
+            'distance': haversine(*xy_graph[idx], *xy_atlas[node]),
+            })
 
-def multiple_source_dijkstra(atlas, sources, targets, weights, **kwargs):
-	'''
-	Compute lowest cost route(s) from source to target(s) on atlas.
-	See .dijkstra.dijkstra for details on inputs
-	'''
-
-	kwargs.setdefault('pb_kwargs', {'disp': True})
-	kwargs.setdefault('dijkstra_kwargs', {'return_paths': False})
-	kwargs.setdefault('depots', [])
-
-	if not hasattr(targets, '__iter__'):
-		targets=[targets]
-
-	results = []
-
-	for source in ProgressBar(sources, **kwargs['pb_kwargs']):
-
-		if source in kwargs['depots']:
-
-			_weights = {key: np.inf for key in weights.keys()}
-			# print(source, _weights)
-
-		else:
-
-			_weights = weights
-
-		result = single_source_dijkstra(
-			atlas, source, targets, _weights, **kwargs['dijkstra_kwargs'])
-
-		results.extend(result)
-
-	return results
+    return node_assignment
 
 def node_assignment(atlas, graph):
-	'''
-	Maps closest nodes from atlas to graph and graph to atlas - assumes 2D graph
-	'''
 
-	# Pulling coordinates from atlas
-	xy_atlas = np.array([(n['x'], n['y']) for n in atlas._node.values()])
-	xy_atlas = xy_atlas.reshape((-1,2))
+    x, y = np.array(
+        [[val['x'], val['y']] for key, val in graph._node.items()]
+        ).T
 
-	# Creating spatial KDTree for assignment
-	kd_tree = KDTree(xy_atlas)
+    graph_nodes = np.array(
+        [key for key, val in graph._node.items()]
+        ).T
 
-	# Pulling coordinates from graph
-	xy_graph = np.array([(n['x'], n['y']) for n in graph._node.values()])
-	xy_graph = xy_graph.reshape((-1,2))
+    atlas_nodes = closest_nodes_from_coordinates(atlas, x, y)
 
-	graph_nodes=list(graph.nodes)
+    graph_to_atlas = (
+        {graph_nodes[idx]: atlas_nodes[idx]['id'] for idx in range(len(graph_nodes))}
+        )
+    
+    atlas_to_graph = {}
 
-	# Computing assignment
-	result = kd_tree.query(xy_graph)
+    for key, val in graph_to_atlas.items():
 
-	graph_to_atlas = {}
-	atlas_to_graph = {n: [] for n in atlas.nodes}
+        if val in atlas_to_graph.keys():
 
-	for idx in range(len(xy_graph)):
+            atlas_to_graph[val] += [key]
 
-		graph_to_atlas[graph_nodes[idx]] = result[1][idx]
-		atlas_to_graph[result[1][idx]].append(graph_nodes[idx])
+        else:
 
-	print(len(graph_to_atlas), len(atlas_to_graph))
+            atlas_to_graph[val] = [key]
 
-	return graph_to_atlas, atlas_to_graph
+    return graph_to_atlas, atlas_to_graph
 
-def adjacency(atlas, graph, weights, **kwargs):
-	'''
-	Computing adjacency for graph by routing along atlas
-	'''
+def dijkstra(graph, origins, **kwargs):
 
-	kwargs.setdefault('pb_kwargs', {'disp': True})
-	kwargs.setdefault('dijkstra_kwargs', {'return_paths': False})
-	kwargs.setdefault('compute_all', False)
-	kwargs.setdefault('node_assignment_function', node_assignment)
-	kwargs.setdefault('depots', [])
+    terminals = kwargs.get('terminals', [])
+    objective = kwargs.get('objective', 'objective')
+    fields = kwargs.get('fields', [])
+    return_paths = kwargs.get('return_paths', True)
+    maximum_cost = kwargs.get('maximum_cost', np.inf) # Maximum acceptable edge cost
+    maximum_depth = kwargs.get('maximum_depth', np.inf) # Maximum acceptable path cost
 
-	# Maps closest nodes from atlas to graph and graph to atlas
-	graph_to_atlas, atlas_to_graph = kwargs['node_assignment_function'](atlas, graph)
+    terminals = [t for t in terminals if t not in origins]
 
-	# All nodes of graph are assumed to be targets
-	targets = [graph_to_atlas[n] for n in list(graph.nodes)]
-	# print(len(targets))
+    nodes = graph._node
+    edges = graph._adj
 
-	# Collecting status of all nodes in graph
-	statuses = np.array([n['status'] for n in graph._node.values()])
+    costs = {}
+    values = {}
+    paths = {}
 
-	# Creating sources based on statuses and compute_all
-	if kwargs['compute_all']:
+    c = count()
+    heap = []
 
-		sources = targets[:]
+    for origin in origins:
+        
+        costs[origin] = 0
+        values[origin] = {f: 0 for f in fields}
+        paths[origin] = [origin]
 
-	else:
+        heappush(heap, (0, next(c), origin))
 
-		sources = [graph_to_atlas[k] for k, v in graph._adj.items() if not v]
+    while heap: # Iterating while there are accessible unseen nodes
 
-		# sources = [targets[idx] for idx, status in enumerate(statuses) if status == 0]
+        # Popping the lowest cost unseen node from the heap
+        cost, _, source = heappop(heap)
 
-	# print(sources)
+        if source in terminals:
 
-	kwargs['depots'] = [graph_to_atlas[n] for n in list(kwargs['depots'])]
+            continue
 
-	for n in list(graph.nodes):
+        for target, edge in edges[source].items():
 
-		graph._node[n]['status'] = 1
+            edge_cost = edge.get(objective, 1)
 
-	# Computing routes between selected sources and all targets
-	# print(len(sources))
-	results = multiple_source_dijkstra(atlas, sources, targets, weights, **kwargs)
+            if edge_cost > maximum_cost:
 
-	# Compiling edge information from results into 3-tuple for adding to graph
-	edges = []
+                continue
 
-	for result in results:
+            # Updating states for edge traversal
+            path_cost = cost + edge_cost
 
-		sources = atlas_to_graph[result.pop('source')]
-		targets = atlas_to_graph[result.pop('target')]
+            if path_cost > maximum_depth:
 
-		for source in sources:
+                continue
 
-			for target in targets:
+            # Updating the weighted cost for the path
+            savings = path_cost < costs.get(target, np.inf)
 
-				edges.append((source, target, result))
+            if savings:
+               
+                costs[target] = path_cost
+                values[target] = {k: v + edge.get(k, 1) for k, v in values[source].items()}
+                paths[target] = paths[source] + [target]
 
-	# Adding edges to graph
-	graph.add_edges_from(edges)
+                heappush(heap, (path_cost, next(c), target))
 
-	return graph
+    return costs, values, paths
+
+def adjacency(atlas, graph, **kwargs):
+    '''
+    Adds adjacency to graph by routing on atlas
+    '''
+    objective = kwargs.get('objective', 'distance')
+    maximum_cost = kwargs.get('maximum_cost', np.inf)
+    maximum_depth = kwargs.get('maximum_depth', np.inf)
+    fields = kwargs.get('fields', ['distance', 'time'])
+    pb_kw = kwargs.get('progress_bar', {})
+    depots = kwargs.get('depots', [])
+
+    graph_to_atlas, atlas_to_graph = node_assignment(atlas, graph)
+
+    destinations = list(graph.nodes)
+
+    destinations_atlas = [graph_to_atlas[node] for node in destinations]
+
+    # print(len(destinations_atlas), len(np.unique(destinations_atlas)))
+
+    for origin in ProgressBar(destinations, **pb_kw):
+
+        # print(origin, np.inf if origin in depots else maximum_depth)
+
+        origin_atlas = graph_to_atlas[origin]
+        # print(origin, origin_atlas)
+
+        costs, values, _ = dijkstra(
+            atlas,
+            [origin_atlas],
+            objective = objective,
+            maximum_cost = np.inf if origin in depots else maximum_cost,
+            maximum_depth = np.inf if origin in depots else maximum_depth,
+            fields = fields,
+            )
+
+        adj = {}
+
+        destinations_reached = np.intersect1d(
+            list(values.keys()),
+            destinations_atlas,
+            )
+
+        # print(
+        #     origin, len(destinations_reached), np.inf if origin in depots else maximum_depth
+        #     )
+
+        # print(len(values.keys()))
+        # print(len(np.unique(list(costs.keys()))))
+        # print(costs.keys())
+        # break
+
+        for destination in destinations_reached:
+
+            nodes = atlas_to_graph[destination]
+
+            for node in nodes:
+
+                adj[node] = values[destination]
+
+        graph._adj[origin] = adj
+
+        # break
+
+    return graph

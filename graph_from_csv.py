@@ -9,7 +9,7 @@ import pandas as pd
 
 
 import src
-from src.utilities import CondPrint
+from src.utilities import cprint
 
 str_color = '\033[1m\033[38;5;34m\033[48;5;0m'
 
@@ -117,13 +117,13 @@ if __name__ == "__main__":
     t0 = time.time()
 
     args = vars(parser.parse_args(sys.argv[1:]))
-    CondPrint(str_color + '\n' + 'Module graph_from_csv' + '\n', args['verbose'])
+    cprint(str_color + '\n' + 'Module graph_from_csv' + '\n', args['verbose'])
 
     args['node_attributes']=eval(args['node_attributes'])
 
     if args['parameters_file'] is not None:
 
-        CondPrint('Loading parameters file', args['verbose'])
+        cprint('Loading parameters file', args['verbose'])
 
         with open(args['parameters_file'], 'r') as file:
 
@@ -134,11 +134,11 @@ if __name__ == "__main__":
             args[key] = parameters[key]
 
     #Loading in node .csv files as DataFrame
-    CondPrint(str_color + 'Loading CSV files', args['verbose'])
+    cprint(str_color + 'Loading CSV files', args['verbose'])
     df = src.graph.dataframe_from_csv(args['input_files'])
 
     #Down-selection
-    CondPrint(str_color + 'Down-selection', args['verbose'])
+    cprint(str_color + 'Down-selection', args['verbose'])
     if args['exclude'] is not None:
 
         fields = ParseAttributes(args['exclude'])
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     # Attributes
     if args['node_attributes']:
 
-        CondPrint('Loading parameters file', args['verbose'])
+        cprint('Loading parameters file', args['verbose'])
 
         node_attributes = args['node_attributes']
 
@@ -177,15 +177,15 @@ if __name__ == "__main__":
         graph = None
 
     #Creating vertices dictionary
-    CondPrint(str_color + 'Creating vertices', args['verbose'])
+    cprint(str_color + 'Creating vertices', args['verbose'])
     nlg = src.graph.nlg_from_dataframe(
-        df, node_attributes = node_attributes, graph = graph
+        df, node_attributes = node_attributes,
         )
 
     #Writing to file
-    CondPrint(str_color + 'Writing to file', args['verbose'])
+    cprint(str_color + 'Writing to file', args['verbose'])
     src.graph.nlg_to_json(nlg, args['output_file'])
 
-    CondPrint(
+    cprint(
         str_color + '\n' + f'Done: {time.time()-t0:.3f} seconds' +
         '\033[0m\n', args['verbose'])

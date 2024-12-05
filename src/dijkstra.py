@@ -1,155 +1,162 @@
-'''
-Module for Dijkstra routing
+import numpy as np
 
-Code is based on (is an edited version of):
-NetworkX shortest_paths.weighted._dijkstra_multisource
-
-Edits are to allow for native tracking of multiple shortest path simultaneously.
-For example, one could get a shortest path weighted by 'distance' but also
-want to know path 'time', this edited code allows for this to be done efficiently.
-'''
 from heapq import heappop, heappush
 from itertools import count
-from sys import float_info
+from sys import maxsize
 
-def dijkstra(graph, sources, targets = [], weights = {}, return_paths = False):
-    """Uses Dijkstra's algorithm to find shortest weighted paths
+def _dijkstra(graph, origins, **kwargs):
 
-    Code is based on (is an edited version of):
-    NetworkX shortest_paths.weighted._dijkstra_multisource
+    destinations = kwargs.get('destinations', [])
+    objective = kwargs.get('objective', 'objective')
+    fields = kwargs.get('fields', [])
+    maximum_cost = kwargs.get('maximum_cost', np.inf)
 
-    Edits are to allow for native tracking of multiple shortest path simultaneously.
 
-    Parameters
-    ----------
-    graph : NetworkX graph
+    nodes = graph._node
+    edges = graph._adj
 
-    sources : non-empty iterable of nodes
-        Starting nodes for paths. If this is just an iterable containing
-        a single node, then all paths computed by this function will
-        start from that node. If there are two or more nodes in this
-        iterable, the computed paths may begin from any one of the start
-        nodes.
+    costs = {} # dictionary of objective values for paths
 
-    weights : dictionary - {field: cutoff}
-        Cumulative values for path fields will be returned - if any cutoff is exceeded
-        in reaching a node the node is considered unreachable via the given path.
-        AT LEAST ONE FIELD IS REQUIRED.
+    path_values = {}
+    paths = {}
 
-    targets : iterable of nodes - optionally empty
-        Ending nodes for path. Search is halted when all targets are reached. If empty
-        all nodes will be reached if possible.
+    visited = {} # dictionary of costs-to-reach for nodes
 
-    return_paths : Boolean
-        Boolean whether or not to compute paths dictionary. If False None
-        is returned for the paths output. COMPUTING PATHS WILL INCREASE RUN-TIME.
 
-    Returns
-    -------
-    distance : dictionary
-        A mapping from node to shortest distance to that node from one
-        of the source nodes.
+    c = count() # use the count c to avoid comparing nodes (may not be able to)
+    heap = [] # heap is heapq with 3-tuples (cost, c, node)
 
-    paths : dictionary
-        Dictionary containing ordered lists of nodes passed on shortest
-        path between the origin node and other nodes. If return_paths == False
-        then None will be returned.
-    """
-    
-    null_value = {w: 0. for w in weights}
+    for origin in origins:
 
-    if return_paths:
-        paths = {source: {'source': source, 'value': null_value} for source in sources}
-    else:
-        paths = None
+        # Source is seen at the start of iteration and at 0 cost
+        visited[origin] = np.inf
 
-    n_weights=len(weights)
+        values = {f: 0 for f in fields}
+        paths[origin] = [origin]
 
-    for weight, limit in weights.items():
-        if limit <= 0:
-            weights[weight] = float_info.max
+        heappush(heap, (0, next(c), values, origin))
 
-    graph_succ = graph._adj
-    # For speed-up (and works for both directed and undirected graphs)
+    while heap: # Iterating while there are accessible unseen nodes
 
-    dist = {}  # dictionary of final distances
-    seen = {}
+        # Popping the lowest cost unseen node from the heap
+        cost, _, values, source = heappop(heap)
 
-    if len(targets) == 0:
-
-        remaining_targets=["null"]
-
-    else:
-
-        remaining_targets=targets[:]
-
-    # fringe is heapq with 3-tuples (distance,c,node)
-    # use the count c to avoid comparing nodes (may not be able to)
-
-    c = count()
-    fringe = []
-
-    # print(sources)
-
-    for source in sources:
-
-        seen[source] = 0
-        heappush(fringe, ([0,]*n_weights, next(c), source))
-
-    while fringe:
-
-        (d, _, v) = heappop(fringe)
-
-        if v in dist:
+        if source in costs:
 
             continue  # already searched this node.
 
-        dist[v] = d
+        costs[source] = cost
+        path_values[source] = values
 
-        if v in remaining_targets:
+        for target, edge in edges[source].items():
 
-            remaining_targets.remove(v)
+            # Updating states for edge traversal
+            cost_target = cost + edge.get(objective, 1)
+
+            # Updating the weighted cost for the path
+            savings = cost_target < visited.get(target, np.inf)
+
+            feasible = cost_target <= maximum_cost
+
+            if savings & feasible:
+
+                values_target = {k: v + edge.get(k, 0) for k, v in values.items()}
+               
+                visited[target] = cost_target
+
+                paths[target] = paths[source] + [target]
+
+                heappush(heap, (cost_target, next(c), values_target, target))
+
+    return costs, path_values, terminal
+
+def dijkstra(graph, origins, **kwargs):
+
+    destinations = kwargs.get('destinations', [])
+    objective = kwargs.get('objective', 'objective')
+    fields = kwargs.get('fields', [])
+    return_paths = kwargs.get('return_paths', True)
+    terminate_at_destinations = kwargs.get('terminate_at_destinations', True)
+    maximum_cost = kwargs.get('maximum_cost', np.inf)
+    maximum_depth = kwargs.get('maximum_depth', np.inf)
 
 
-        if len(remaining_targets) == 0:
+    nodes = graph._node
+    edges = graph._adj
+
+    costs = {} # dictionary of objective values for paths
+
+    path_values = {}
+
+    visited = {} # dictionary of costs-to-reach for nodes
+
+    terminal = {k: True for k in graph.nodes}
+
+    terminals = []
+
+    if terminate_at_destinations:
+
+        terminals = [d for d in destinations if d not in origins]
+
+    c = count() # use the count c to avoid comparing nodes (may not be able to)
+    heap = [] # heap is heapq with 3-tuples (cost, c, node)
+
+    for origin in origins:
+
+        # Source is seen at the start of iteration and at 0 cost
+        visited[origin] = np.inf
+
+        values = {f: 0 for f in fields}
+        # print(values)
+
+        heappush(heap, (0, next(c), values, origin))
+
+    while heap: # Iterating while there are accessible unseen nodes
+
+        # Popping the lowest cost unseen node from the heap
+        cost, _, values, source = heappop(heap)
+
+        # print(values)
+
+        if source in costs:
+
+            continue  # already searched this node.
+
+        costs[source] = cost
+        path_values[source] = values
+
+        if len(costs) > maximum_depth:
 
             break
 
-        for u, e in graph_succ[v].items():
+        # print(values)
 
-            cost = [e.get(field, 1) for field in weights.keys()]
+        if source in terminals:
 
-            if cost[0] is None:
+            continue
 
-                continue
+        for target, edge in edges[source].items():
 
-            vu_dist = [dist[v][idx] + cost[idx] for idx in range(n_weights)]
+            # Updating states for edge traversal
+            cost_target = cost + edge.get(objective, 1)
 
-            cutoff_exceeded = any([vu_dist[idx] > weights[field] \
-                for idx, field in enumerate(weights.keys())])
+            # Updating the weighted cost for the path
+            savings = cost_target <= visited.get(target, np.inf)
 
-            if cutoff_exceeded:
+            feasible = cost_target <= maximum_cost
 
-                continue
+            if savings & feasible:
 
-            if u in dist:
+                # print(edge, {k: v for k, v in values.items()})
 
-                u_dist = dist[u]
+                values_target = {k: v + edge.get(k, 0) for k, v in values.items()}
+               
+                visited[target] = cost_target
+                terminal[source] = False
+                # terminal[target] = True
 
-                if vu_dist[0] < u_dist[0]:
+                heappush(heap, (cost_target, next(c), values_target, target))
 
-                    raise ValueError("Contradictory paths found:", "negative weights?")
+    terminal = {k: terminal[k] for k in costs.keys()}
 
-            elif u not in seen or vu_dist[0] < seen[u]:
-
-                seen[u] = vu_dist[0]
-
-                heappush(fringe, (vu_dist, next(c), u))
-
-                if paths is not None:
-
-                    value = {w: vu_dist[idx] for idx, w in enumerate(weights)}
-
-                    paths[u] = {'source': paths[v]['source'], 'value': value}
-
-    return dist, paths
+    return costs, path_values, terminal

@@ -33,7 +33,6 @@ Link -> edge, adj
 
 Nodes of a graph may also be referred to as vertices
 '''
-
 import json
 import momepy
 import numpy as np
@@ -42,6 +41,45 @@ import geopandas as gpd
 import networkx as nx
 
 from scipy.spatial import KDTree
+
+def cypher(graph):
+
+	encoder = {k: idx for idx, k in enumerate(graph.nodes)}
+	decoder = {idx: k for idx, k in enumerate(graph.nodes)}
+
+	return encoder, decoder
+
+def graph_from_communities(graph, communities):
+
+    _node = graph._node
+
+    nodes = []
+
+    for idx, community in enumerate(communities):
+
+        x_coordinates = []
+        y_coordinates = []
+        populations = []
+
+        for source in community:
+
+            x_coordinates.append(_node[source]['x'])
+            y_coordinates.append(_node[source]['y'])
+            populations.append(_node[source]['population'])
+
+        node = {
+            'id': f'community_{idx}',
+            'x': np.mean(x_coordinates),
+            'y': np.mean(y_coordinates),
+            'population': sum(populations),
+            'places': [k for k in community],
+        }
+
+        nodes.append(node)
+
+    links = []
+
+    return graph_from_nlg({'nodes': nodes, 'links': links})
 
 # Functions for NLG JSON handling 
 
@@ -129,7 +167,9 @@ def graph_from_nlg(nlg, **kwargs):
 
 def nlg_from_graph(nlg, **kwargs):
 
-	return nx.node_link_data(nlg, **kwargs)
+	nlg = nx.node_link_data(nlg, **kwargs)
+
+	return nlg
 
 # Functions for loading graphs from shapefiles
 
@@ -148,24 +188,45 @@ def graph_from_shapefile(filepath, node_attributes = {}, link_attributes = {}, *
 
 	See reformat_graph for description of node_attributes and link_attributes
 	'''
+	contains_links = kwargs.get('contains_links', True)
+	conditions = kwargs.get('conditions', [])
 
-	# Loading the road map shapefile into a GeoDataFrame
-	gdf = gpd.read_file(filepath)
+	if contains_links:
 
-	# Making sure that cartographic crs is used so
-	# Haversine distances can be accurately computed
-	gdf = gdf.to_crs(4326)
+		# Loading the road map shapefile into a GeoDataFrame
+		gdf = gpd.read_file(filepath)
 
-	# Creating a NetworkX Graph
-	graph = graph_from_gdf(gdf)
+		for condition in conditions:
 
-	# Reformatting the Graph
-	graph = reformat_graph(
-		graph, node_attributes, link_attributes, **kwargs)
+			gdf = gdf[eval(condition)]
+
+		# Making sure that cartographic crs is used so
+		# Haversine distances can be accurately computed
+		gdf = gdf.to_crs(4326)
+
+		# Creating a NetworkX Graph
+		graph = graph_from_gdf(gdf)
+
+		# Reformatting the Graph
+		graph = reformat_graph(
+			graph, node_attributes, link_attributes, **kwargs)
+
+	else:
+
+		# Loading the shapefile into a GeoDataFrame
+		gdf = gpd.read_file(filepath)
+
+		# Making sure that cartographic crs is used so
+		# Haversine distances can be accurately computed
+		gdf = gdf.to_crs(4326)
+
+		nlg = nlg_from_dataframe(gdf, node_attributes)
+
+		graph = graph_from_nlg(nlg)
 
 	return graph
 
-def graph_from_gdf(gdf,directed=False):
+def graph_from_gdf(gdf, directed = False):
 	'''
 	Calls momepy gdf_to_nx function to make a Graph from a GeoDataFrame.
 	In this case the primal graph (vertex-defined) is called for, multi-paths
@@ -270,13 +331,13 @@ def graph_from_csv(filename, node_attributes = {}):
 
 	return graph_from_nlg(nlg)
 
-def dataframe_from_csv(filename):
+def dataframe_from_csv(filename, **kwargs):
 	'''
 	Loads data provided as CSV to DataFrame. Can also load multiple CSV with
 	the same columns into a singe DataFRame
 	'''
 
-	if not hasattr(filename, '__iter__'):
+	if type(filename) is str:
 
 		filename = [filename]
 
@@ -284,57 +345,68 @@ def dataframe_from_csv(filename):
 
 	for file in filename:
 
-		dataframes.append(pd.read_csv(file))
+		dataframes.append(pd.read_csv(file, **kwargs))
 
 	dataframe = pd.concat(dataframes, axis = 0)
 	dataframe.reset_index(inplace = True, drop = True)
 
 	return dataframe
 
-def nlg_from_dataframe(dataframe, node_attributes = {}, graph = None):
+def dataframe_from_xlsx(filename, **kwargs):
+	'''
+	Loads data provided as CSV to DataFrame. Can also load multiple CSV with
+	the same columns into a singe DataFRame
+	'''
+
+	if type(filename) is str:
+
+		filename = [filename]
+
+	dataframes = []
+
+	for file in filename:
+
+		dataframes.append(pd.read_excel(file, **kwargs))
+
+	dataframe = pd.concat(dataframes, axis = 0)
+	dataframe.reset_index(inplace = True, drop = True)
+
+	return dataframe
+
+def nlg_from_dataframe(dataframe, node_attributes = {}):
 	'''
 	Creates NLG dictionary with empty links from dataframe.
 	See reformat_graph for description of node_attributes.
 	'''
 
-	if graph is None:
-
-		nodes = []
-		links = []
-
-	else:
-
-		data = nx.node_link_data(graph)
-
-		nodes = data['nodes']
-		links = data['links']
-
-	existing_nodes = [n['id'] for n in nodes]
+	nodes = []
 
 	for source_idx, source in dataframe.iterrows():
 
-		if source not in existing_nodes:
+		# Adding id field and status field - status == 0 for adjacency not computed
+		node = {
+			'id': source_idx,
+			}
 
-			# Adding id field and status field - status == 0 for adjacency not computed
-			node = {
-				'id': source_idx,
-				'status': 0,
-				'visited': 0,
-				}
+		for field, fun in node_attributes.items():
 
-			for field, fun in node_attributes.items():
+			if type(fun) is str:
 
-				if type(fun) is str:
+				fun = eval(fun)
 
-					fun = eval(fun)
+			node[field] = fun(source)
 
-				node[field] = fun(source)
+		nodes.append(node)
 
-			nodes.append(node)
-
-	nlg = {'nodes': nodes, 'links': links}
+	nlg = {'nodes': nodes, 'links': []}
 
 	return nlg
+
+def graph_from_dataframe(dataframe, node_attributes = {}):
+
+	nlg = nlg_from_dataframe(dataframe, node_attributes = node_attributes)
+
+	return graph_from_nlg(nlg)
 
 def exclude_rows(dataframe, attributes):
 	'''
@@ -370,7 +442,57 @@ def mark_nodes(graph, nodes, field, value, **kwargs):
 
 	return graph
 
+def remove_edges(graph, criteria = []):
+
+	_adj = {}
+
+	for source, adj in graph._adj.items():
+
+		_adj[source] = {}
+
+		for target, edge in adj.items():
+
+			keep = True
+
+			for fun in criteria:
+
+				keep *= fun(edge)
+
+			if keep:
+
+				_adj[source][target] = edge
+
+	graph._adj = _adj
+
+	return graph
+
 def subgraph(graph, nodes):
+
+	_node = graph._node
+	_adj = graph._adj
+
+	node_list = [(n, _node[n]) for n in nodes]
+
+	edge_list = []
+
+	for source in nodes:
+		for target in nodes:
+
+			edge_list.append((source, target, _adj[source].get(target, None)))
+
+	edge_list = [e for e in edge_list if e[2] is not None]
+
+	subgraph = graph.__class__()
+
+	subgraph.add_nodes_from(node_list)
+
+	subgraph.add_edges_from(edge_list)
+
+	subgraph.graph.update(graph.graph)
+
+	return subgraph
+
+def subgraph1(graph, nodes):
 
 	subgraph = graph.__class__()
 
@@ -384,3 +506,42 @@ def subgraph(graph, nodes):
 	subgraph.graph.update(graph.graph)
 
 	return subgraph
+
+
+def supergraph(graphs):
+
+	supergraph = graphs[0].__class__()
+
+	nodes = []
+
+	edges = []
+
+	names = []
+
+	show = True
+
+	for graph in graphs:
+
+		for source, adj in graph._adj.items():
+
+			names.append(source)
+
+			coords_s = (graph._node[source]['x'], graph._node[source]['y'])
+
+			nodes.append((coords_s, graph._node[source]))
+
+			for target, edge in adj.items():
+
+				coords_t = (graph._node[target]['x'], graph._node[target]['y'])
+
+				edges.append((coords_s, coords_t, edge))
+
+	supergraph.add_nodes_from(nodes)
+
+	supergraph.add_edges_from(edges)
+
+	supergraph = nx.relabel_nodes(
+		supergraph, {k: names[idx] for idx, k in enumerate(supergraph.nodes)}
+		)
+
+	return supergraph

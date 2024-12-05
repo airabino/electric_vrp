@@ -1,170 +1,213 @@
-import time
 import numpy as np
+import networkx as nx
 
-from scipy.special import factorial
+from .graph import graph_from_nlg
+from .utilities import pythagorean
+from .floyd_warshall import shortest_paths
 
-class MultiNormalSample():
+default_rng = np.random.default_rng()
 
-    def __init__(self, **kwargs):
+def random_connected_graph(n, k, **kwargs):
 
-        self.loc = kwargs.get('loc', [0])
-        self.scale = kwargs.get('scale', [1])
-        self.weight = kwargs.get('weight', [1])
-        self.clip = kwargs.get('clip', [-np.inf, np.inf])
-        self.rng = np.random.default_rng(kwargs.get('seed', None))
+    rng = kwargs.get('rng', default_rng)
 
-        self.n = len(self.loc)
-        self.bins = np.cumsum(self.weight)
+    label = kwargs.get('label', '')
 
-    def random(self, size = (1, )):
-        # t0 = time.time()
+    x_gen = kwargs.get('x', lambda n: rng.uniform(0, 1, size = (n, )))
+    y_gen = kwargs.get('y', lambda n: rng.uniform(0, 1, size = (n, )))
 
-        rn = self.rng.random(size)
-        # print(time.time() - t0)
+    node_functions = kwargs.get('node_functions', {})
+    edge_functions = kwargs.get('edge_functions', {})
 
-        distribution_idx = np.digitize(rn, self.bins)
-        # print(time.time() - t0)
+    x = x_gen(n)
+    y = y_gen(n)
 
-        vals = np.zeros(size)
+    x_s, x_t = np.meshgrid(x, x, indexing = 'ij')
+    y_s, y_t = np.meshgrid(y, y, indexing = 'ij')
 
-        for idx in range(self.n):
-            add = distribution_idx == idx
+    distance = pythagorean(x_s, y_s, x_t, y_t)
 
-            vals += self.rng.normal(self.loc[idx], self.scale[idx], size) * add
-        # print(time.time() - t0)
+    ccg = nx.from_numpy_array(distance, edge_attr = 'distance')
 
-        return np.clip(vals, *self.clip)
+    mst = nx.minimum_spanning_tree(ccg, weight = 'distance')
+    
+    nodes = []
 
-def queuing_time(l, m, c):
+    for idx in range(n):
 
-    rho = l / (c * m)
+        node = {
+            'id': f'{label}_{idx}',
+            'x': x[idx],
+            'y': y[idx],
+            'n': idx,
+        }
 
-    k = np.arange(0, c, 1)
+        for key, function in node_functions.items():
 
-    p_0 = 1 / (
-        sum([(c * rho) ** k / factorial(k) for k in k]) +
-        (c * rho) ** c / (factorial(c) * (1 - rho))
-    )
+            node[key] = function(node)
 
-    l_q = (p_0 * (l / m) ** c * rho) / (factorial(c) * (1 - rho))
+        nodes.append(node)
 
-    w_q = l_q / l
+    links = []
+    node_link_counts = {n['id']: 0 for n in nodes}
 
-    return w_q
+    for idx_s in range(n):
 
-def arrival_frequency(node, rng, size):
+        mse = list(mst._adj[nodes[idx_s]['n']].keys())
 
-    if node['rural']:
+        indices = np.argsort(distance[nodes[idx_s]['n']])[1:]
 
-        return 1 / (rng.random(size = size) * 10800 + 1800)
+        for idx_t in mse:
 
-    else:
+            source = nodes[idx_s]['id']
+            target = nodes[idx_t]['id']
 
-        return 1 / (rng.random(size = size) * 3600 + 600)
+            d = distance[idx_s, idx_t]
 
-def service_frequency(node, rng, size):
+            edge = {
+                'source': source,
+                'target': target,
+                'distance': d,
+            }
 
-    n_ac = np.nanmax([1, node['n_ac']])
-    n_dc = np.nanmax([0, node['n_dc']])
+            for key, function in edge_functions.items():
 
-    c = max([n_ac + n_dc, 1])
+                edge[key] = function(edge)
 
-    # print('a', n_ac, n_dc, c)
+            links.append(edge)
 
-    m_ac = m_ac = 1 / (np.clip(rng.normal(37.8, 14.8, size = size), 1, 100) / 12.1 * 3600)
-    m_dc = m_ac = 1 / (np.clip(rng.normal(37.8, 14.8, size = size), 1, 100) / 80 * 3600)
+            node_link_counts[source] += 1
 
-    return (n_ac * m_ac + n_dc * m_dc) / c, c
+        for idx_t in indices:
 
-def test_time(node, rng, size):
+            if idx_t in mse:
 
-    n_ac = np.nanmax([0, node['n_ac']])
-    n_dc = np.nanmax([0, node['n_dc']])
+                continue
 
-    time_per_test = rng.triangular(240, 480, 720, size = size)
+            if node_link_counts[source] > k:
 
-    return (n_ac + n_dc) * time_per_test
+                break
 
-class Charger_Time():
+            source = nodes[idx_s]['id']
+            target = nodes[idx_t]['id']
 
-    def __init__(self, **kwargs):
+            d = distance[idx_s, idx_t]
 
-        self.rng = np.random.default_rng(kwargs.get('seed', None))
-        self.size = kwargs.get('size', (1, ))
+            edge = {
+                'source': source,
+                'target': target,
+                'distance': d,
+            }
 
-        self.arrival = lambda n: arrival_frequency(n, self.rng, self.size)
-        self.service = lambda n: service_frequency(n, self.rng, self.size)
-        self.test = lambda n: test_time(n, self.rng, self.size)
+            for key, function in edge_functions.items():
 
-    def assign(self, node):
+                edge[key] = function(edge)
 
-        l = self.arrival(node)
-        m, c = self.service(node)
+            links.append(edge)
 
-        # print(l, m, c)
+            node_link_counts[source] += 1
 
-        node['queue_time'] = queuing_time(l, m, c)
+    return graph_from_nlg({'nodes': nodes, 'links': links}, **kwargs.get('nx', {}))
 
-        node['test_time'] = self.test(node)
+def random_intermediate_nodes(graph, n, **kwargs):
 
-        node['time'] = node['queue_time'] + node['test_time']
+    _node = graph._node
+    _adj = graph._adj
 
-def assign_link_parameters(graph, parameters):
+    rng = kwargs.get('rng', default_rng)
 
-    # mns = MultiNormalSample(
-    #     **parameters['link_traffic'],
-    #     seed = parameters['rng_seed']
-    #     )
+    label = kwargs.get('label', '')
 
-    shape = parameters['n_samples']
-    rng = np.random.default_rng(parameters['rng_seed'])
+    bounds = kwargs.get('bounds', (0, 1))
 
-    for source, links in graph._adj.items():
-        for target, link in links.items():
+    node_functions = kwargs.get('node_functions', {})
+    edge_functions = kwargs.get('edge_functions', {})
 
-            # mult = 1 / mns.random(shape)
-            k_0 = parameters['link_speed_multiplier'][0]
-            k_1 = parameters['link_speed_multiplier'][1] - k_0
-            mult = rng.random(shape) * k_1 + k_0
+    for idx in range(n):
 
-            link['time'] = link['time'] / mult
-            link['length'] = link['length'] * np.ones(shape)
-            link['price'] = (link['length'] * parameters['efficiency'] / 
-                3.6e6 * parameters['energy_price'])
+        source = rng.choice(graph.nodes)
+        source_node = _node[source]
+
+        target = rng.choice(list(_adj[source].keys()))
+        target_node = _node[target]
+
+        ratio = rng.uniform(*bounds)
+
+        # print(ratio)
+
+        x = source_node['x'] + (target_node['x'] - source_node['x']) * ratio
+        y = source_node['y'] + (target_node['y'] - source_node['y']) * ratio
+
+        intermediate = f'{label}_{idx}'
+
+        node = {
+            'x': x,
+            'y': y,
+            'n': idx,
+        }
+
+        for key, function in node_functions.items():
+
+            node[key] = function(node)
+
+        graph.add_node(intermediate, **node)
+
+        graph.remove_edge(source, target)
+        graph.remove_edge(target, source)
+
+        distance = pythagorean(source_node['x'], source_node['y'], x, y)
+
+        edge = {
+                'distance': distance,
+            }
+
+        for key, function in edge_functions.items():
+
+            edge[key] = function(edge)
+
+        graph.add_edge(source, intermediate, **edge)
+        graph.add_edge(intermediate, source, **edge)
+
+        distance = pythagorean(x, y, target_node['x'], target_node['y'])
+
+        edge = {
+                'distance': distance,
+            }
+
+        for key, function in edge_functions.items():
+
+            edge[key] = function(edge)
+
+        graph.add_edge(intermediate, target, **edge)
+        graph.add_edge(target, intermediate, **edge)
 
     return graph
 
-def assign_node_parameters(graph, parameters):
+def all_pairs_graph(graph, **kwargs):
 
-    size = parameters['n_samples']
-    seed = parameters['rng_seed']
+    conditions = kwargs.get('conditions', [])
 
-    charger_time = Charger_Time(size = size, seed = seed)
+    predecessors, values, paths = shortest_paths(graph, **kwargs)
+    # print(predecessors)
 
-    for node in graph._node.values():
+    # print((predecessors == predecessors.T).all())
 
-        charger_time.assign(node)
-        node['length'] = np.zeros(size)
-        node['price'] = np.zeros(size)
+    nodes = [(k, v) for k, v in graph._node.items()]
 
-        # node['time_dl'] = np.zeros(size)
+    edges = []
 
-    return graph
+    for source, adj in values.items():
+        for target, val in adj.items():
+            # if source != target:
 
-def assign_node_parameters_null(graph, parameters):
+            feasible = np.product([fun(val) for fun in conditions])
 
-    size = parameters['n_samples']
-    seed = parameters['rng_seed']
+            if feasible:
 
-    charger_time = Charger_Time(size = size, seed = seed)
+                edges.append((source, target, val))
 
-    for node in graph._node.values():
+    apg = nx.DiGraph()
+    apg.add_nodes_from(nodes)
+    apg.add_edges_from(edges)
 
-        # charger_time.assign(node)
-        node['time'] = np.zeros(size)
-        node['length'] = np.zeros(size)
-        node['price'] = np.zeros(size)
-
-        # node['time_dl'] = np.zeros(size)
-
-    return graph
+    return apg

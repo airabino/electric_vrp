@@ -1,35 +1,24 @@
 {
-	"input_files":[
-		"CEC/ACL2_Weighted_Sample.csv",
-	    "CEC/DCL2_Weighted_Sample.csv",
-	    "CEC/Depots.csv"
+	"input_files": [
+		"CEC/Unvisited_AFDC_Locations.csv",
+	    "CEC/Depots_v2.csv"
 	],
-	"output_file":"graph.json",
-	"keep_comment":[
-		"County",
-		"Sacremento",
-		"San Joaquin",
-		"Amador",
-		"Yolo",
-		"Solano",
-		"El Dorado",
-		"Contra Costa",
-		"Sutter",
-		"Pacer"
-	],
-	"node_attributes":{
-		"id":"lambda r: r['ID']",
-		"name":"lambda r: r['Station Name']",
-		"address":"lambda r: r['Street Address']",
-		"city":"lambda r: r['City']",
-		"state":"lambda r: r['State']",
-		"zip":"lambda r: r['ZIP']",
-		"x":"lambda r: r['Longitude']",
-		"y":"lambda r: r['Latitude']",
-		"dcfc":"lambda r: r['DCFC']",
-		"ev_network_clean":"lambda r: r['EV Network Clean']",
-		"n_ac":"lambda r: r['EV Level2 EVSE Num']",
-		"n_dc":"lambda r: r['EV DC Fast Count']",
-		"rural":"lambda r: r['rural']"
+	"output_file": "graph.json",
+	"node_attributes": {
+		"id": "lambda r: r['ID']",
+		"name": "lambda r: r['Station Name']",
+		"address": "lambda r: r['Street Address']",
+		"city": "lambda r: r['City']",
+		"state": "lambda r: r['State']",
+		"zip": "lambda r: r['ZIP']",
+		"x": "lambda r: r['Longitude']",
+		"y": "lambda r: r['Latitude']",
+		"n_ac": "lambda r: r['EV Level2 EVSE Num']",
+		"n_dc": "lambda r: r['EV DC Fast Count']",
+		"network": "lambda r: r['EV Network Clean']",
+		"rural": "lambda r: r['rural']",
+		"dac_lic": "lambda r: r['DAC/LIC']",
+		"dcfc": "lambda r: r['DCFC']",
+		"region": "lambda r: r['GreaterRegion']"
 	}
 }
