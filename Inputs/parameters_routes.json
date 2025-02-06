@@ -1,0 +1,25 @@
+{
+    "graphs_path": "Outputs/graphs/",
+    "output_file": "Outputs/routes.json",
+    "vehicles_file": "Inputs/parameters_vehicle.json",
+    "rng_seed": 108037753028,
+    "beta": 1.4,
+    "functions": {
+        "Time": "lambda g, r: sum([g._adj[r[idx]][r[idx + 1]].get('cost', '') for idx in range(len(r) - 1)])",
+        "Distance": "lambda g, r: sum([g._adj[r[idx]][r[idx + 1]].get('distance', '') for idx in range(len(r) - 1)])",
+        "Station Name": "lambda g, r: [g._node[r].get('name', '') for r in r]",
+        "City": "lambda g, r: [g._node[r].get('city', '') for r in r]",
+        "State": "lambda g, r: [g._node[r].get('state', '') for r in r]",
+        "ZIP": "lambda g, r: [g._node[r].get('zip', '') for r in r]",
+        "Longitude": "lambda g, r: [g._node[r].get('x', '') for r in r]",
+        "Latitude": "lambda g, r: [g._node[r].get('y', '') for r in r]",
+        "DCFC": "lambda g, r: [g._node[r].get('dcfc', '') for r in r]",
+        "Network": "lambda g, r: [g._node[r].get('network', '') for r in r]",
+        "DAC/LIC": "lambda g, r: [g._node[r].get('dac_lic', '') for r in r]",
+        "Connector": "lambda g, r: [g._node[r].get('connector', '') for r in r]",
+        "AC Chargers": "lambda g, r: [np.nanmax([0, g._node[r].get('n_ac', 0)]) for r in r]",
+        "DC Chargers": "lambda g, r: [np.nanmax([0, g._node[r].get('n_dc', 0)]) for r in r]"
+    },
+    "exclude": [
+    ]
+}

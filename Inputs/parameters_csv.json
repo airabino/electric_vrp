@@ -1,0 +1,26 @@
+{
+	"input_files": [
+		"Inputs/Stations.csv",
+	    "Inputs/Depots.csv"
+	],
+	"output_file": "Outputs/graph.json",
+	"node_attributes": {
+		"id": "lambda r: r['ID']",
+		"name": "lambda r: r['Station Name']",
+		"address": "lambda r: r['Street Address']",
+		"city": "lambda r: r['City']",
+		"state": "lambda r: r['State']",
+		"zip": "lambda r: r['ZIP']",
+		"x": "lambda r: r['Longitude']",
+		"y": "lambda r: r['Latitude']",
+		"n_ac": "lambda r: r['EV Level2 EVSE Num']",
+		"n_dc": "lambda r: r['EV DC Fast Count']",
+		"network": "lambda r: r['EV Network Clean']",
+		"connector": "lambda r: r['EV Connector Types']",
+		"nacs": "lambda r: r.get('nacs', False)",
+		"rural": "lambda r: r['rural']",
+		"dac_lic": "lambda r: r['DAC/LIC']",
+		"dcfc": "lambda r: r['DCFC']",
+		"region": "lambda r: r['GreaterRegion']"
+	}
+}

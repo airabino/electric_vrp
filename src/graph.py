@@ -434,38 +434,6 @@ def keep_rows(dataframe, attributes):
 
 # Functions for graph operations
 
-def mark_nodes(graph, nodes, field, value, **kwargs):
-
-	for node in nodes:
-
-		graph._node[node][field] = value
-
-	return graph
-
-def remove_edges(graph, criteria = []):
-
-	_adj = {}
-
-	for source, adj in graph._adj.items():
-
-		_adj[source] = {}
-
-		for target, edge in adj.items():
-
-			keep = True
-
-			for fun in criteria:
-
-				keep *= fun(edge)
-
-			if keep:
-
-				_adj[source][target] = edge
-
-	graph._adj = _adj
-
-	return graph
-
 def subgraph(graph, nodes):
 
 	_node = graph._node
@@ -491,22 +459,6 @@ def subgraph(graph, nodes):
 	subgraph.graph.update(graph.graph)
 
 	return subgraph
-
-def subgraph1(graph, nodes):
-
-	subgraph = graph.__class__()
-
-	subgraph.add_nodes_from((n, graph.nodes[n]) for n in nodes)
-
-	subgraph.add_edges_from((n, nbr, d)
-		for n, nbrs in graph.adj.items() if n in nodes
-		for nbr, d in nbrs.items() if nbr in nodes
-		)
-
-	subgraph.graph.update(graph.graph)
-
-	return subgraph
-
 
 def supergraph(graphs):
 

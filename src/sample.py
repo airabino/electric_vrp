@@ -245,3 +245,17 @@ def assign_groups(graph, groups):
                 node['group'] = None
 
     return graph
+
+def adjust_counts(graph, counts):
+
+    totals = {k: 0 for k in counts.keys()}
+
+    for source, node in graph._node.items():
+
+        if node['group'] is not None:
+
+            totals[node['group']] += 1
+
+    adjusted_counts = {k: min([totals[k], counts[k]]) for k in totals.keys()}
+
+    return adjusted_counts

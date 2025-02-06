@@ -108,6 +108,8 @@ def node_assignment(atlas, graph):
         [key for key, val in graph._node.items()]
         ).T
 
+    # print(graph_nodes)
+
     atlas_nodes = closest_nodes_from_coordinates(atlas, x, y)
 
     graph_to_atlas = (
@@ -207,7 +209,10 @@ def adjacency(atlas, graph, **kwargs):
 
     graph_to_atlas, atlas_to_graph = node_assignment(atlas, graph)
 
+    # print(graph_to_atlas)
+
     destinations = list(graph.nodes)
+    # print(destinations)
 
     destinations_atlas = [graph_to_atlas[node] for node in destinations]
 

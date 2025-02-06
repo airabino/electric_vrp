@@ -1,0 +1,45 @@
+{
+	"CCS": {
+		"conditions": [
+			"lambda n: n.get('network', '') not in ['', 'Tesla', 'Tesla Destination']",
+			"lambda n: n.get('visited', 0) == 0"
+		],
+		"consumption": {
+			"speeds": [13.4, 25.3, 31.3],
+			"rates": [634, 589, 685]
+		},
+		"dwells": [
+			"lambda n: min(np.nan_to_num([4, n['n_dc']])) * 420",
+			"lambda n: min(np.nan_to_num([2, n['n_ac']])) * 420"
+		]
+	},
+	"NACS": {
+		"conditions": [
+			"lambda n: n.get('network', '') in ['Depot', 'Tesla', 'Tesla Destination']",
+			"lambda n: n.get('nacs', False)",
+			"lambda n: n.get('visited', 0) == 0"
+		],
+		"consumption": {
+			"speeds": [13.4, 25.3, 31.3],
+			"rates": [634, 589, 685]
+		},
+		"dwells": [
+			"lambda n: min(np.nan_to_num([4, n['n_dc']])) * 420",
+			"lambda n: min(np.nan_to_num([2, n['n_ac']])) * 420"
+		]
+	},
+	"Tesla": {
+		"conditions": [
+			"lambda n: n.get('network', '') in ['Depot', 'Tesla', 'Tesla Destination']",
+			"lambda n: n.get('visited', 0) == 0"
+		],
+		"consumption": {
+			"speeds": [13.4, 25.3, 31.3],
+			"rates": [338, 515, 423]
+		},
+		"dwells": [
+			"lambda n: min(np.nan_to_num([4, n['n_dc']])) * 420",
+			"lambda n: min(np.nan_to_num([2, n['n_ac']])) * 420"
+		]
+	}
+}

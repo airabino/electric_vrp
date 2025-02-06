@@ -64,6 +64,12 @@ class Colormap():
             self.cmap = LinearSegmentedColormap.from_list(
                 'custom', colors, N = 256)
 
+    def reversed(self):
+
+        self.cmap = self.cmap.reversed()
+
+        return self
+
     def colors(self, values):
 
         values = np.asarray(values).astype(float)

@@ -1,9 +1,0 @@
-{
-	"graph_file":"graph.json",
-	"atlas_file":"atlas.json",
-	"weights":{
-		"length":400e3,
-		"time":28800
-	},
-	"depots": [1000000000, 2000000000, 3000000000]
-}

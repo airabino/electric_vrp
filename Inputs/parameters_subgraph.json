@@ -1,0 +1,9 @@
+{
+	"graph_file":"Outputs/graph.json",
+	"atlas_file":"Inputs/reduced_atlas.json",
+	"rules_file":"Inputs/sampling_rules.csv",
+	"output_path":"Outputs/graphs/",
+	"kwargs":{
+		"maximum_cost": 400e3
+	}
+}
