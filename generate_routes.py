@@ -69,7 +69,6 @@ def generate_routes(parameters):
     rng = np.random.default_rng(parameters['rng_seed'])
 
     routes_lists = {}
-    routes_graphs = {}
 
     index_offset = 0
 
@@ -87,19 +86,23 @@ def generate_routes(parameters):
 
         index_offset = len(routes_lists[key])
 
-        routes_graphs[key] = src.routing.routes_graph(
-            subgraph, routes_lists[key], index_offset = index_offset
-        )
-
     routes = []
 
     for handle, subgraph in subgraphs.items():
+
+        vehicle = handle.split('::')[-1]
         
-        routes.extend(
+        case_routes = (
             src.routing.route_information(
                 subgraph, routes_lists[handle], parameters['functions']
             )
         )
+
+        for case_route in case_routes:
+
+            case_route['tag'] = vehicle
+
+        routes.append(case_routes)
 
     cprint('Writing to file', verbose)
 
