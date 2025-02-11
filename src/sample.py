@@ -187,18 +187,9 @@ def load_groups(file):
     
     groups = pd.read_csv(file)
 
-    counts = {idx: g for idx, g in enumerate(groups['Count'].to_numpy())}
-
-    mapping = {
-        'GreaterRegion': 'region',
-        'EV Network Clean': 'network',
-        'DAC/LIC': 'dac_lic',
-        'rural': 'rural',
-        'DCFC': 'dcfc',
-    }
-
-    groups = groups[list(mapping.keys())]
-    groups = groups.rename(mapping, axis = 1)
+    counts = {idx: g for idx, g in enumerate(groups['count'].to_numpy())}
+    
+    groups = groups[[k for k in groups.keys() if k != 'count']]
 
     return groups, counts
 
@@ -215,8 +206,13 @@ def assign_groups(graph, groups):
         unique_values[key] = {uv: idx for idx, uv in enumerate(u)}
         groups[key] = ui
 
+    # print(unique_values)
+
     x = groups.to_numpy()
     y = groups.index.to_numpy()
+
+    # print(x)
+    # print(y)
 
     clf = tree.DecisionTreeClassifier()
     clf = clf.fit(x, y)
