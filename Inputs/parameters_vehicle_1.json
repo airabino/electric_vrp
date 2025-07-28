@@ -1,7 +1,7 @@
 {
 	"Adapter": {
 		"conditions": [
-			"lambda n: ('Tesla' not in n.get('network', '')) or (n.get('nacs', True))",
+			"lambda n: n.get('nacs', True)",
 			"lambda n: n.get('visited', 0) == 0"
 		],
 		"consumption": {

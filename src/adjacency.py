@@ -206,12 +206,19 @@ def adjacency(atlas, graph, **kwargs):
     fields = kwargs.get('fields', ['distance', 'time'])
     pb_kw = kwargs.get('progress_bar', {})
     depots = kwargs.get('depots', [])
+    update = kwargs.get('update', False)
 
     graph_to_atlas, atlas_to_graph = node_assignment(atlas, graph)
 
     # print(graph_to_atlas)
 
-    destinations = list(graph.nodes)
+    if update:
+
+        destinations = [k for k, a in graph._adj.items() if a == {}]
+
+    else:
+
+        destinations = list(graph.nodes)
     # print(destinations)
 
     destinations_atlas = [graph_to_atlas[node] for node in destinations]

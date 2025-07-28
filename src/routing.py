@@ -159,12 +159,14 @@ def acceptance(current, tentative, temperature):
 
     return acceptance_probability(current, tentative, temperature) > np.random.rand()
 
-def route_cost(graph, route, objective = 'objective'):
+def route_cost(graph, route, beta = 1, objective = 'objective'):
 
     _node = graph._node
     _adj = graph._adj
 
     cost = 0
+
+    multipliers = [beta] + [1] * (len(route) - 2) + [beta]
 
     for idx in range(len(route) - 1):
 
@@ -173,7 +175,7 @@ def route_cost(graph, route, objective = 'objective'):
             _node[route[idx]].get(objective, 0)
             )
 
-    return cost
+    return cost ** beta
 
 def route_feasible(graph, route, constraints):
 
@@ -185,6 +187,47 @@ def route_feasible(graph, route, constraints):
 
     return feasible
 
+def order_route(graph, route, **kwargs):
+    '''
+    Greedy route order optimization
+    '''
+
+    objective = kwargs.get('objective', 'objective')
+
+    depot = route[0]
+    stations = route[1:-1]
+
+    unvisited = set(stations)
+
+    order = [depot]
+    source = depot
+
+    for idx in range(len(stations)):
+
+        distances = []
+        c = count()
+
+        for target in unvisited:
+
+            distance = graph._adj[source].get(target, {}).get(objective, np.inf)
+
+            heappush(distances, (distance, next(c), target))
+
+        distance, _, next_station = heappop(distances)
+
+        if distance == np.inf:
+
+            return route
+
+        order.append(next_station)
+        unvisited.remove(next_station)
+
+        source = next_station
+
+    order.append(depot)
+
+    return order
+
 def routes(graph, depot, **kwargs):
 
     objective = kwargs.get('objective', 'objective')
@@ -194,6 +237,8 @@ def routes(graph, depot, **kwargs):
     final_temperature = kwargs.get('final_temperature', 0)
     beta = kwargs.get('beta', 1)
     rng = kwargs.get('rng', default_rng)
+    order_routes_max_size = kwargs.get('order_routes_max_size', np.inf)
+
 
     _adj = graph._adj
 
@@ -221,6 +266,8 @@ def routes(graph, depot, **kwargs):
 
     while (temperature > final_temperature) and (len(routes) >= 2):
 
+        # print(temperature, end = '\r')
+
         temperature -= delta
 
         index_1, index_2 = rng.choice(list(range(len(routes))), size = 2, replace = False)
@@ -237,9 +284,17 @@ def routes(graph, depot, **kwargs):
 
         tentative_route = route_1[:-1] + route_2[1:]
 
+        # print('a', tentative_route)
+
+        if len(tentative_route) > 3 and len(tentative_route) < order_routes_max_size:
+
+            tentative_route = order_route(graph, tentative_route, objective = objective)
+
+        # print('b', tentative_route)
+
         tentative_cost = route_cost(
-            graph, tentative_route, objective = objective
-            ) ** beta
+            graph, tentative_route, beta = beta, objective = objective
+            )
 
         feasible = route_feasible(graph, tentative_route, constraints)
 
@@ -252,7 +307,10 @@ def routes(graph, depot, **kwargs):
 
             routes.append((tentative_route, tentative_cost))
 
-    return [r[0] for r in routes]
+    # routes = [order_route(graph, r[0], objective = objective) for r in routes]
+    routes = [r[0] for r in routes]
+
+    return routes
 
 def routes_multi_depot(graph, depot, **kwargs):
 

@@ -113,8 +113,7 @@ def subgraphs(graph, assignment):
 
     for depot in depots:
 
-        nodes = [depot] + [k for k, v in assignment.items() \
-        if (v == depot) and (not graph._node[k]['visited'])]
+        nodes = [depot] + [k for k, v in assignment.items() if v == depot]
 
         subgraphs[depot] = subgraph(graph, nodes)
 
